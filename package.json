@@ -1,0 +1,31 @@
+{
+  "name": "access-your-district",
+  "version": "1.0.0",
+  "description": "AccessYourDistrict — A crowdsourced civic engagement & accessibility platform for the Congressional App Challenge, hosted on GitHub Pages.",
+  "main": "index.html",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "optimize": "node scripts/build.js",
+    "serve": "python3 -m http.server 8000",
+    "test": "node --check js/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/c07822343-cmyk/COmp.git"
+  },
+  "keywords": [
+    "congressional-app-challenge",
+    "civic-engagement",
+    "accessibility",
+    "ada",
+    "leaflet",
+    "openstreetmap",
+    "firebase",
+    "github-pages"
+  ],
+  "author": "Congressional App Challenge Student Developer",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,57 @@
+# ==============================================================================
+# GITHUB ACTIONS CI/CD DEPLOYMENT WORKFLOW (EXAMPLE)
+# ==============================================================================
+# To use automated CI/CD deployment on GitHub Pages:
+# 1. Copy this file to `.github/workflows/deploy.yml` in your GitHub repository.
+# 2. Go to your repo Settings > Pages > Source and choose "GitHub Actions".
+# 3. Every push to `main` will automatically execute `node scripts/build.js`
+#    and deploy the optimized `/dist` folder to GitHub Pages!
+# ==============================================================================
+
+name: Deploy AccessYourDistrict to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run DevOps Optimization & Minification Build Script
+        run: node scripts/build.js
+
+      - name: Upload dist/ artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
