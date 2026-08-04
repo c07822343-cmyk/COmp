@@ -5,10 +5,10 @@
 
 ## 📋 Table of Contents
 1. [Executive Summary & Purpose](#1-executive-summary--purpose)
-2. [Societal Use & Civic Resource Layer (Winning Legacy)](#2-societal-use--civic-resource-layer-winning-legacy)
+2. [Societal Use, District Info & Civic Resource Layer (Winning Legacy)](#2-societal-use-district-info--civic-resource-layer-winning-legacy)
 3. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#3-end-to-end-technical-data-flow-for-your-13-minute-video)
 4. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#4-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
-5. [Data Structures Explanation](#5-data-structures-explanation)
+5. [Data Structures & Dynamic JSON District Binding](#5-data-structures--dynamic-json-district-binding)
 6. [API Calls & Real-Time Synchronization Logic](#6-api-calls--real-time-synchronization-logic)
 7. [Modular Software Architecture](#7-modular-software-architecture)
 8. [Step-by-Step GitHub Pages & Firebase Deployment](#8-step-by-step-github-pages--firebase-deployment)
@@ -23,21 +23,26 @@ By combining **Leaflet.js** interactive mapping with **OpenStreetMap** and real-
 
 ---
 
-## 2. Societal Use & Civic Resource Layer (Winning Legacy)
+## 2. Societal Use, District Info & Civic Resource Layer (Winning Legacy)
 
-Drawing on the winning legacies of past Congressional App Challenge champions like **CivicLink** (connecting constituents to government) and **EnAct** (empowering disability inclusion), **AccessYourDistrict** maximizes societal impact through three key features:
+Drawing on the winning legacies of past Congressional App Challenge champions like **CivicLink** (connecting constituents to government) and **EnAct** (empowering disability inclusion), **AccessYourDistrict** maximizes societal impact through four key features:
 
-### A. Searchable Government Directory (`🏛️ Civic Directory` Tab)
+### A. Dynamic Congressional District Header & House.gov Integration
+* **JSON-Driven District Banner (`#district-header-banner`):** At the top of the application, a prominent Congressional banner dynamically displays your Representative's name, district code (`FL-23`), local office location, and constituent phone number using a modular JSON configuration object (`js/district-config.js`).
+* **Official U.S. House Contact Link:** Features a prominent **`Contact Representative`** button linking directly to your Member's official **[House.gov](https://moskowitz.house.gov/contact)** constituent portal, demonstrating a genuine commitment to federal civic engagement.
+* **Congressional Seal Aesthetic:** Styled with official Congressional navy blue (`#0a2540`), American gold borders (`#d4af37`), and star motifs (`★★★`), lending the dignity and authority of a federal constituent program.
+
+### B. Searchable Government Directory (`🏛️ Civic Directory` Tab)
 * Visitors can toggle between **Citizen Reports** and the **Government Directory** in the sidebar.
 * Features 5 verified local municipal, DPW, and U.S. Congressional constituent offices.
 * **Verified Accessible Status:** Every government office displays an official green badge (`🏛️ VERIFIED ACCESSIBLE`) and an ADA compliance breakdown (e.g., `✔ ADA Compliant Ramp • ✔ Power Doors • ✔ Accessible Elevators • ✔ ASL Services`).
 * **One-Click Zoom & Constituent Connection:** Clicking an office card zooms smoothly to its coordinates (`zoom: 17`) and opens its full profile so residents can call constituent caseworkers or report nearby barriers.
 
-### B. Automated Browser Geolocation on Launch
+### C. Automated Browser Geolocation on Launch
 * When the application opens, it automatically calls the browser's HTML5 **Geolocation API** (`navigator.geolocation.getCurrentPosition`).
 * The map smoothly centers on the citizen's current location and places a distinct blue **"📍 You Are Here"** marker, ensuring immediate local relevance.
 
-### C. CSV Export for City Planners & DPW Engineers (Actionable Civic Data)
+### D. CSV Export for City Planners & DPW Engineers (Actionable Civic Data)
 * Crowdsourced reports are only useful if city leaders can act on them.
 * Clicking **`📥 Export CSV`** in the header or sidebar footer invokes our CSV serialization engine (`exportReportsToCSV`), downloading an RFC 4180-compliant `.csv` file that city planners and DPW engineers can import into municipal GIS systems to schedule infrastructure repairs.
 
@@ -119,17 +124,20 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 5. Data Structures Explanation
+## 5. Data Structures & Dynamic JSON District Binding
 
-1. **The `AccessibilityReport` Schema (NoSQL JSON Tree):**
+1. **The `districtConfig` Schema (`js/district-config.js`):**
+   * Stores the Representative's name, district code (`FL-23`), office location, phone, and official House.gov contact URL.
+   * `renderDistrictHeader(config)` binds this JSON object to DOM elements on page load, allowing any student from any of the 435 U.S. Congressional Districts to customize the application without altering HTML markup.
+2. **The `AccessibilityReport` Schema (NoSQL JSON Tree):**
    * Stores floating-point coordinates (`lat`, `lng`), categorical enum tags (`category`, `severity`), and epoch timestamps.
-2. **The `CivicOffice` Schema:**
+3. **The `CivicOffice` Schema:**
    * Models verified accessible government offices (`type: "CONGRESSIONAL" | "MUNICIPAL"`, `status: "VERIFIED_ACCESSIBLE"`, and an array of `adaFeatures`).
-3. **Marker Index Map (`Map<string, L.Marker>`):**
+4. **Marker Index Map (`Map<string, L.Marker>`):**
    * Indexes Leaflet markers by ID to achieve **$O(1)$ constant-time** marker lookup, update, and deletion during real-time WebSocket syncs.
-4. **Multi-Select Category Set (`Set<string>`):**
+5. **Multi-Select Category Set (`Set<string>`):**
    * Stores active filter tags for $O(1)$ inclusion checking (`this.selectedCategories.has(report.category)`).
-5. **Frequency Aggregation Dictionary (`categoryCounts`):**
+6. **Frequency Aggregation Dictionary (`categoryCounts`):**
    * Aggregates category counts across the district in a single $O(n)$ pass.
 
 ---
@@ -165,12 +173,14 @@ export function exportReportsToCSV(reports) {
                     │  (Data Repository, CSV  │
                     │   Export & Demo Engine) │
                     └────────────┬────────────┘
-                                 ▼
-                    ┌─────────────────────────┐
-                    │   firebase-config.js    │
-                    │  (Firebase Modular Web  │
-                    │   SDK v10 via CDN)      │
-                    └─────────────────────────┘
+                                 │
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+       ┌───────────────────┐           ┌───────────────────┐
+       │firebase-config.js │           │district-config.js │
+       │ (Modular Web SDK  │           │ (Representative   │
+       │  v10 via CDN)     │           │  JSON Binding)    │
+       └───────────────────┘           └───────────────────┘
 ```
 
 ---
@@ -203,14 +213,14 @@ export function exportReportsToCSV(reports) {
 
 ## 9. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
 
-> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `js/report-service.js` (for CSV Export and Firebase logic) and `js/map-controller.js` (for the O(1) Map dictionary)!
+> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `js/district-config.js` (JSON header binding), `js/report-service.js` (for CSV Export and Firebase logic), and `js/map-controller.js` (for the O(1) Map dictionary)!
 
-### **[0:00 – 0:40] Introduction, Problem Statement & Accessibility Design**
-* **Visual:** Show yourself speaking or the homepage of **AccessYourDistrict**. Demonstrate clicking the `[ A+ ]` font scaler and toggling `[ 🌗 High Contrast ]`.
+### **[0:00 – 0:40] Introduction, Problem Statement & Congressional Seal Branding**
+* **Visual:** Show yourself speaking or the homepage of **AccessYourDistrict**. Point out the Dynamic Congressional District Header (`FL-23 / Rep. Jared Moskowitz`) and demonstrate clicking the `[ A+ ]` font scaler and toggling `[ 🌗 High Contrast ]`.
 * **Script:**
   > *"Hello! I am [Your Name], and I built **AccessYourDistrict** for the Congressional App Challenge. In every congressional district, accessibility barriers like broken wheelchair ramps, missing tactile paving, or blocked sidewalks prevent community members with disabilities from safely navigating their neighborhoods.*
   > 
-  > *To ensure the tool is usable by everyone—including people with visual impairments—I designed AccessYourDistrict with an Accessibility-First approach inspired by winners like SoniSight. Visitors can dynamically scale font sizes and toggle an Ultra High-Contrast Dark Mode that meets WCAG AAA standards."*
+  > *At the top of the app, our Dynamic Congressional District Header displays my Representative's name and office contact info using a modular JSON object, linking directly to my Member's official House.gov portal. Styled with official Congressional navy blue and American gold seal emblems, the tool aligns with the dignity of federal constituent programs while meeting WCAG AAA accessibility standards."*
 
 ### **[0:40 – 1:30] Live Demonstration: Crowdsourcing & Civic Resource Directory**
 * **Visual:** Show how the app opens centered on your location via the Geolocation API. Click **Report Barrier**, pin a location, select `"♿ Broken Ramp"`, and submit. Then click the **`🏛️ Civic Directory`** tab and show the verified government offices and ADA feature badges.
@@ -230,7 +240,7 @@ export function exportReportsToCSV(reports) {
   > 
   > *Finally, to turn citizen reports into municipal action, I built a custom **CSV Export engine** using JavaScript Blobs. City planners can export crowdsourced barrier datasets in standard RFC 4180 format to import directly into municipal GIS systems."*
 
-### **[2:30 – 3:00] Impact & Conclusion**
+### **[2:30 – 3:00] Civic Advocacy & Conclusion**
 * **Visual:** Show the filtered map with several reports, the mobile tab switcher, and the Congressional District Portal banner.
 * **Script:**
-  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with verified government resources, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*
+  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with verified government resources and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*

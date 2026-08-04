@@ -6,17 +6,22 @@
  *
  * ARCHITECTURE, DATA FLOW & SOCIETAL USE EXPLANATION:
  * ---------------------------------------------------
- * 1. Societal Use (Civic Resource & Government Directory Layer):
+ * 1. Dynamic District Header (Civic Representative Info):
+ *    - Uses `districtConfig` JSON object and `renderDistrictHeader()` to bind
+ *      the Representative's name, district code, phone, and official House.gov
+ *      contact URL dynamically to the top of the application.
+ *
+ * 2. Societal Use (Civic Resource & Government Directory Layer):
  *    - Integrates `getCivicOffices()` to display verified ADA-accessible local
  *      government and congressional offices on the map and in the sidebar.
  *    - Implements CSV Export (`exportReportsToCSV`) so city planners and DPW
  *      engineers can import crowdsourced citizen reports into municipal GIS systems.
  *
- * 2. Automated Geolocation API Integration:
+ * 3. Automated Geolocation API Integration:
  *    - On launch, the browser Geolocation API centers the map automatically on
  *      the resident's current position and places a "You Are Here" pin.
  *
- * 3. End-to-End Technical Data Flow (Summary for Video Submission):
+ * 4. End-to-End Technical Data Flow (Summary for Video Submission):
  *    [User Map Click / Form Submit]
  *                 │
  *                 ▼
@@ -43,6 +48,7 @@ import {
   getCivicOffices,
   exportReportsToCSV
 } from "./report-service.js";
+import { districtConfig, renderDistrictHeader } from "./district-config.js";
 import { MapController } from "./map-controller.js";
 import { UIController } from "./ui-controller.js";
 
@@ -109,15 +115,18 @@ class AccessYourDistrictApp {
   init() {
     console.log("🚀 [AccessYourDistrict] Initializing civic accessibility platform...");
 
-    // 1. Initialize Map & UI DOM event listeners
+    // 1. Render Dynamic District Header from JSON Config
+    renderDistrictHeader(districtConfig);
+
+    // 2. Initialize Map & UI DOM event listeners
     this.map.init();
     this.ui.init();
     this.ui.setDatabaseStatus(isLiveFirebaseConfigured);
 
-    // 2. Bind top Navigation Bar Actions
+    // 3. Bind top Navigation Bar Actions
     this.bindHeaderActions();
 
-    // 3. Subscribe to real-time reports from Firebase / Demo DB
+    // 4. Subscribe to real-time reports from Firebase / Demo DB
     subscribeToReports((reports) => {
       this.latestReports = reports;
       this.ui.updateSidebar(reports, this.civicOffices);
@@ -125,7 +134,7 @@ class AccessYourDistrictApp {
       this.map.syncCivicOffices(this.civicOffices, true);
     });
 
-    // 4. AUTOMATIC GEOLOCATION API CALL ON OPEN (SOCIETAL PORTABILITY)
+    // 5. AUTOMATIC GEOLOCATION API CALL ON OPEN (SOCIETAL PORTABILITY)
     // Centers map on the user's actual browser coordinates with a "You Are Here" marker
     this.map.locateUserDistrict(
       (coords) => {
@@ -143,7 +152,8 @@ class AccessYourDistrictApp {
       getReports: () => this.latestReports,
       getCivicOffices: () => this.civicOffices,
       exportCSV: () => exportReportsToCSV(this.latestReports),
-      toggleHighContrast: () => this.ui.toggleHighContrast()
+      toggleHighContrast: () => this.ui.toggleHighContrast(),
+      updateDistrict: (newConfig) => renderDistrictHeader(newConfig)
     };
   }
 

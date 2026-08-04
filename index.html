@@ -21,7 +21,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="AccessYourDistrict">
 
-  <!-- Open Graph / Facebook / LinkedIn / Representative Office Email Preview (OG Meta Tags) -->
+  <!-- Open Graph / LinkedIn / Facebook / Representative Office Email Preview -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://c07822343-cmyk.github.io/COmp/">
   <meta property="og:title" content="AccessYourDistrict — Crowdsourced Civic Accessibility Platform">
@@ -125,6 +125,50 @@
       </button>
     </div>
   </header>
+
+  <!-- =========================================================================
+       DYNAMIC DISTRICT HEADER (CIVIC REPRESENTATIVE & OFFICIAL HOUSE.GOV CONTACT)
+       ========================================================================= -->
+  <section id="district-header-banner" class="district-header-banner" role="region" aria-label="Official Congressional District Information">
+    <div class="district-banner-content">
+      <!-- Official Congressional Seal Aesthetic Badge -->
+      <div class="district-seal-badge" aria-hidden="true">
+        <span class="seal-stars">★★★</span>
+        <span class="seal-code" id="district-seal-code">FL-23</span>
+        <span class="seal-stars">★★★</span>
+      </div>
+      
+      <!-- Dynamic Representative & Office Information (Populated by JSON in js/district-config.js) -->
+      <div class="district-rep-info">
+        <div class="rep-title-line">
+          <span class="rep-label" id="district-tagline">119th U.S. Congress &bull; Constituent Accessibility &amp; ADA Initiative</span>
+        </div>
+        <div class="rep-main-line">
+          <h2 class="rep-name" id="rep-name-display">Rep. Jared Moskowitz</h2>
+          <span class="rep-district" id="district-name-display">Florida's 23rd Congressional District</span>
+        </div>
+        <div class="rep-contact-line">
+          <span class="office-location">📍 <strong id="rep-office-display">Boca Raton &amp; Fort Lauderdale District Offices</strong></span>
+          <span class="office-phone">📞 <a href="tel:9548451179" id="rep-phone-display" class="phone-link">(954) 845-1179</a></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Official Civic Engagement Links -->
+    <div class="district-banner-actions">
+      <a href="https://moskowitz.house.gov/contact" id="btn-contact-rep" target="_blank" rel="noopener noreferrer" 
+         class="btn btn-congressional" aria-label="Contact your Congressional Representative on official House.gov website (opens in new tab)">
+        <span class="congress-flag-icon" aria-hidden="true">🏛️</span>
+        <span class="btn-text">Contact Representative</span>
+        <span class="external-arrow" aria-hidden="true">↗</span>
+      </a>
+      <a href="https://www.house.gov" target="_blank" rel="noopener noreferrer" 
+         class="btn btn-sm btn-ghost house-link" aria-label="Visit House.gov official U.S. House of Representatives website (opens in new tab)">
+        <span>House.gov</span>
+        <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </section>
 
   <!-- =========================================================================
        REPORTING MODE INSTRUCTION BANNER (Hidden by default)
@@ -302,6 +346,9 @@
           <h2 id="civic-dir-title" class="civic-title">Government &amp; Congressional Directory</h2>
           <p class="civic-subtitle">
             Verified ADA-accessible municipal offices, DPW departments, and U.S. Congressional constituent offices. Click any office below to zoom to its location and view verified accessibility features.
+          </p>
+          <p id="rep-sidebar-contact-info" class="civic-subtitle" style="margin-top: 0.4rem; color: var(--primary-color);">
+            <!-- Populated dynamically by renderDistrictHeader() -->
           </p>
           
           <!-- Civic Office Search Box -->

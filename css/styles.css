@@ -15,6 +15,8 @@
       - Seamless mobile view switcher for small viewports (<768px).
    3. Societal Use & Civic Resource Layer:
       - High-contrast government directory cards and ADA verification badges.
+   4. Congressional Seal Aesthetic & Official Branding:
+      - Deep navy blue (#002868) and American gold (#d4af37) seal banners.
 ============================================================================= */
 
 /* =============================================================================
@@ -38,6 +40,12 @@
   --severity-low-bg: #ecfdf5;
   --resolved-color: #475569;
   --resolved-bg: #f1f5f9;
+
+  /* Congressional Navy & Gold Heritage Branding */
+  --congress-navy: #002868;
+  --congress-navy-dark: #0a2540;
+  --congress-gold: #d4af37;
+  --congress-gold-light: #fef08a;
 
   /* Neutral Backgrounds & Text */
   --bg-main: #f1f5f9;
@@ -79,6 +87,11 @@ html[data-theme="high-contrast"] {
   --severity-low-bg: #003311;
   --resolved-color: #cccccc;
   --resolved-bg: #222222;
+
+  --congress-navy: #000000;
+  --congress-navy-dark: #111111;
+  --congress-gold: #ffff00;
+  --congress-gold-light: #ffff00;
 
   --bg-main: #000000;
   --bg-card: #111111;
@@ -323,6 +336,191 @@ html[data-theme="high-contrast"] .contrast-toggle {
 }
 
 /* =============================================================================
+   DYNAMIC DISTRICT HEADER BANNER (OFFICIAL CONGRESSIONAL SEAL AESTHETIC)
+   ============================================================================= */
+.district-header-banner {
+  background: linear-gradient(135deg, var(--congress-navy-dark) 0%, var(--congress-navy) 100%);
+  color: #ffffff;
+  border-bottom: 3px solid var(--congress-gold);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-md);
+  z-index: 950;
+  position: relative;
+}
+
+html[data-theme="high-contrast"] .district-header-banner {
+  background: #000000;
+  color: #ffff00;
+  border-bottom-color: #ffff00;
+}
+
+.district-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+/* Official Congressional Seal Aesthetic Emblem */
+.district-seal-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #0a2540;
+  border: 3px solid var(--congress-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  text-align: center;
+  user-select: none;
+}
+
+html[data-theme="high-contrast"] .district-seal-badge {
+  background: #111111;
+  border-color: #ffff00;
+  color: #ffff00;
+}
+
+.seal-stars {
+  font-size: 0.48rem;
+  letter-spacing: 2px;
+  color: var(--congress-gold);
+  line-height: 1;
+}
+
+html[data-theme="high-contrast"] .seal-stars {
+  color: #ffff00;
+}
+
+.seal-code {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  margin: 1px 0;
+}
+
+html[data-theme="high-contrast"] .seal-code {
+  color: #ffff00;
+}
+
+.district-rep-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow: hidden;
+}
+
+.rep-title-line {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--congress-gold-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+html[data-theme="high-contrast"] .rep-title-line {
+  color: #ffff00;
+}
+
+.rep-main-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.rep-name {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+html[data-theme="high-contrast"] .rep-name {
+  color: #ffffff;
+}
+
+.rep-district {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.rep-contact-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.phone-link {
+  color: var(--congress-gold-light);
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.phone-link:hover {
+  color: #ffffff;
+}
+
+/* Official Congressional Actions in Header Banner */
+.district-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.btn-congressional {
+  background: linear-gradient(135deg, #1e3a8a 0%, #0d47a1 100%);
+  color: #ffffff;
+  border: 2px solid var(--congress-gold);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  font-weight: 800;
+  padding: 0.55rem 1.15rem;
+  min-height: 44px;
+}
+
+.btn-congressional:hover {
+  background: var(--congress-gold);
+  color: #000000;
+  border-color: #ffffff;
+}
+
+html[data-theme="high-contrast"] .btn-congressional {
+  background: #ffff00;
+  color: #000000;
+  border-color: #ffffff;
+}
+
+html[data-theme="high-contrast"] .btn-congressional:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.house-link {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.house-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+/* =============================================================================
    BUTTONS (ACCESSIBLE TOUCH TARGETS MIN 44-48px)
    ============================================================================= */
 .btn {
@@ -463,7 +661,7 @@ html[data-theme="high-contrast"] .reporting-banner {
    ============================================================================= */
 .app-main {
   display: flex;
-  height: calc(100vh - var(--header-height));
+  height: calc(100vh - var(--header-height) - 78px);
   width: 100vw;
   position: relative;
 }
@@ -915,6 +1113,12 @@ html[data-theme="high-contrast"] .civic-badge-pill {
   font-size: 0.8rem;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+.civic-rep-link {
+  color: var(--primary-color);
+  font-weight: 800;
+  text-decoration: underline;
 }
 
 /* =============================================================================
@@ -1500,6 +1704,14 @@ html[data-theme="high-contrast"] .toast {
   .app-subtitle {
     display: none;
   }
+  .district-header-banner {
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+  }
+  .district-banner-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 /* Mobile Screens (< 768px) - High Portability Mobile Switcher Layout */
@@ -1529,6 +1741,46 @@ html[data-theme="high-contrast"] .toast {
 
   .status-badge {
     display: none;
+  }
+
+  /* Responsive District Header on Mobile */
+  .district-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .district-banner-content {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .district-seal-badge {
+    width: 50px;
+    height: 50px;
+  }
+
+  .rep-name {
+    font-size: 1.1rem;
+  }
+
+  .rep-district {
+    font-size: 0.78rem;
+  }
+
+  .district-banner-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .btn-congressional {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
   }
 
   /* Show Mobile View Switcher */
