@@ -27,12 +27,12 @@
 
 // Category Metadata Mapping (Icons & Labels for Badges)
 const CATEGORY_META = {
-  RAMP:     { label: "Broken Ramp", icon: "♿", color: "#3b82f6" },
-  SIDEWALK: { label: "Blocked Sidewalk", icon: "🚧", color: "#f59e0b" },
-  TACTILE:  { label: "No Tactile Paving", icon: "🦯", color: "#8b5cf6" },
-  SIGNAL:   { label: "Audible Signal", icon: "🔊", color: "#10b981" },
-  SURFACE:  { label: "Uneven Surface", icon: "⚠️", color: "#ef4444" },
-  OTHER:    { label: "Other Barrier", icon: "📌", color: "#64748b" }
+  RAMP:     { label: "Broken Ramp", icon: "♿", color: "#0d47a1" },
+  SIDEWALK: { label: "Blocked Sidewalk", icon: "🚧", color: "#b45309" },
+  TACTILE:  { label: "No Tactile Paving", icon: "🦯", color: "#6b21a8" },
+  SIGNAL:   { label: "Audible Signal", icon: "🔊", color: "#047857" },
+  SURFACE:  { label: "Uneven Surface", icon: "⚠️", color: "#b91c1c" },
+  OTHER:    { label: "Other Barrier", icon: "📌", color: "#475569" }
 };
 
 // Default map view: representative Capitol Hill / congressional district area
@@ -65,9 +65,6 @@ export class MapController {
 
     /** @type {L.Marker|null} */
     this.tempDraftMarker = null;
-
-    // Current category filter state ('ALL' or category code)
-    this.currentFilter = "ALL";
   }
 
   /**
@@ -144,8 +141,8 @@ export class MapController {
     const draftIcon = L.divIcon({
       className: "draft-pin-wrapper",
       html: `<div class="custom-pin-icon severity-high" style="animation: pulse 1s infinite;">📍</div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32]
+      iconSize: [36, 36],
+      iconAnchor: [18, 36]
     });
 
     this.tempDraftMarker = L.marker([lat, lng], { icon: draftIcon })
@@ -226,9 +223,9 @@ export class MapController {
           ${meta.icon}
         </div>
       `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -28]
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -32]
     });
   }
 
@@ -240,19 +237,19 @@ export class MapController {
   buildPopupHTML(report) {
     const meta = CATEGORY_META[report.category] || CATEGORY_META.OTHER;
     const statusText = report.status === "RESOLVED" ? "✔ RESOLVED" : `🔴 ${report.severity || 'MEDIUM'}`;
-    const descExcerpt = report.description.length > 85 
-      ? report.description.substring(0, 85) + "..." 
+    const descExcerpt = report.description.length > 90 
+      ? report.description.substring(0, 90) + "..." 
       : report.description;
 
     return `
       <div class="popup-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <span style="font-size:0.75rem; font-weight:700; color:#1a56db;">${meta.icon} ${meta.label}</span>
-          <span style="font-size:0.7rem; font-weight:700; color:#64748b;">${statusText}</span>
+          <span style="font-size:0.78rem; font-weight:800; color:#0d47a1;">${meta.icon} ${meta.label}</span>
+          <span style="font-size:0.72rem; font-weight:800; color:#475569;">${statusText}</span>
         </div>
         <h4 class="popup-title">${report.title}</h4>
         <p class="popup-desc">${descExcerpt}</p>
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#64748b; margin-top:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#475569; margin-top:4px;">
           <span>👍 ${report.upvotes || 1} confirmations</span>
         </div>
         <button class="btn btn-sm btn-primary popup-btn" 
@@ -264,29 +261,16 @@ export class MapController {
   }
 
   /**
-   * Synchronize Leaflet map markers with the latest reports array from Firebase.
-   * Automatically filters out reports if a category filter is active.
+   * Synchronize Leaflet map markers with the filtered reports array.
+   * Uses an O(1) Map dictionary to add, update, or remove markers smoothly.
    *
-   * @param {Array<Object>} reports
-   * @param {string} currentCategoryFilter - 'ALL' or category code
+   * @param {Array<Object>} filteredReports
    */
-  syncMarkers(reports, currentCategoryFilter = "ALL") {
-    this.currentFilter = currentCategoryFilter;
-
-    // Track active report IDs to prune deleted markers
+  syncMarkers(filteredReports) {
+    // Track active report IDs in current filter view
     const activeIds = new Set();
 
-    for (const report of reports) {
-      // Apply Category Filter
-      if (currentCategoryFilter !== "ALL" && report.category !== currentCategoryFilter) {
-        // If marker exists on map, remove it temporarily while filtered
-        if (this.markerMap.has(report.id)) {
-          this.markerLayer.removeLayer(this.markerMap.get(report.id));
-          this.markerMap.delete(report.id);
-        }
-        continue;
-      }
-
+    for (const report of filteredReports) {
       activeIds.add(report.id);
 
       const existingMarker = this.markerMap.get(report.id);

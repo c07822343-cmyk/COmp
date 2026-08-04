@@ -41,8 +41,9 @@ class AccessYourDistrictApp {
       onReportSubmit: async (formData) => {
         await addReport(formData);
       },
-      onFilterChange: (category) => {
-        this.map.syncMarkers(this.latestReports, category);
+      onFilterChange: (filteredReports, _selectedCategories) => {
+        // Synchronize map markers with whatever is currently visible in UI filter/search
+        this.map.syncMarkers(filteredReports);
       },
       onReportSelect: (lat, lng, reportId) => {
         this.map.focusOnReport(lat, lng, reportId);
@@ -90,7 +91,8 @@ class AccessYourDistrictApp {
     subscribeToReports((reports) => {
       this.latestReports = reports;
       this.ui.updateSidebar(reports);
-      this.map.syncMarkers(reports, this.ui.activeFilter);
+      // Ensure initial map sync uses filtered array from UIController
+      this.map.syncMarkers(this.ui.filteredReports);
     });
 
     // 4. Try locating user district automatically or default to Capitol Hill
@@ -106,7 +108,8 @@ class AccessYourDistrictApp {
     // Expose app debug helper in console for evaluation
     window.AYD = {
       resetDemo: () => resetDemoData(),
-      getReports: () => this.latestReports
+      getReports: () => this.latestReports,
+      toggleHighContrast: () => this.ui.toggleHighContrast()
     };
   }
 

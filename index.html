@@ -1,30 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="standard" data-font-size="normal">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AccessYourDistrict - Civic Accessibility Reporting</title>
-  <meta name="description" content="A crowdsourced civic engagement tool for reporting local accessibility barriers and improving community inclusion for the Congressional App Challenge.">
+  <title>AccessYourDistrict - Congressional App Challenge &amp; Civic Inclusion Platform</title>
+  <meta name="description" content="A crowdsourced civic engagement web app for reporting local accessibility barriers, improving community inclusion, and connecting residents with their congressional district office.">
   
-  <!-- Favicon / Theme -->
-  <meta name="theme-color" content="#1a56db">
+  <!-- Theme Color & Favicon -->
+  <meta name="theme-color" content="#0d47a1">
 
   <!-- Leaflet.js CSS (Free OpenStreetMap Map Library) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
         crossorigin="anonymous" />
 
-  <!-- Custom Styles -->
+  <!-- Custom Accessible & High-Contrast Stylesheet -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <!-- =========================================================================
-       HEADER / NAVIGATION BAR
+       SKIP TO CONTENT LINK (WCAG AAA Screen-Reader & Keyboard Accessibility)
+       ========================================================================= -->
+  <a href="#map" class="skip-link">Skip to Interactive Map</a>
+  <a href="#app-sidebar" class="skip-link">Skip to Reports Dashboard &amp; Filters</a>
+
+  <!-- =========================================================================
+       HEADER / NAVIGATION BAR WITH ACCESSIBILITY TOOLBAR
        ========================================================================= -->
   <header class="app-header" role="banner">
     <div class="header-brand">
       <div class="logo-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
           <path d="M12 8v4"/>
           <path d="M12 16h.01"/>
@@ -32,10 +38,27 @@
       </div>
       <div class="brand-text">
         <h1 class="app-title">AccessYourDistrict</h1>
-        <p class="app-subtitle">Congressional App Challenge &bull; Civic Inclusion Platform</p>
+        <p class="app-subtitle">Congressional App Challenge &bull; Civic Inclusion &amp; Accessibility Platform</p>
       </div>
     </div>
 
+    <!-- ACCESSIBILITY FIRST: Font Scaler & High-Contrast Mode Toolbar -->
+    <div class="a11y-toolbar" role="region" aria-label="Accessibility controls">
+      <div class="font-scaler-group" role="group" aria-label="Adjust text size">
+        <button type="button" id="btn-font-normal" class="a11y-btn active" title="Standard text size (16px)" aria-label="Set standard text size" aria-pressed="true">A</button>
+        <button type="button" id="btn-font-large" class="a11y-btn" title="Large text size (+15%)" aria-label="Set large text size" aria-pressed="false">A+</button>
+        <button type="button" id="btn-font-xl" class="a11y-btn" title="Extra large text size (+35%)" aria-label="Set extra large text size" aria-pressed="false">A++</button>
+      </div>
+
+      <button type="button" id="btn-toggle-contrast" class="a11y-btn contrast-toggle" 
+              title="Toggle Ultra High-Contrast Mode (WCAG AAA compliant)" 
+              aria-label="Toggle High-Contrast Mode" aria-pressed="false">
+        <span aria-hidden="true">🌗</span>
+        <span class="a11y-btn-text">High Contrast</span>
+      </button>
+    </div>
+
+    <!-- Header Actions -->
     <div class="header-actions">
       <!-- Database Connection Status Badge -->
       <div id="db-status-badge" class="status-badge demo-mode" role="status" 
@@ -44,8 +67,8 @@
         <span class="status-text">Demo Mode (Local Storage)</span>
       </div>
 
-      <!-- Locate Me Button -->
-      <button id="btn-locate" class="btn btn-secondary" aria-label="Center map on my location">
+      <!-- Locate Me / District Center Button -->
+      <button type="button" id="btn-locate" class="btn btn-secondary" aria-label="Center map on my congressional district">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="3 11 22 2 13 21 11 13 3 11"/>
         </svg>
@@ -53,8 +76,8 @@
       </button>
 
       <!-- Primary Action: Enter Reporting Mode -->
-      <button id="btn-start-report" class="btn btn-primary" aria-label="Report an accessibility barrier">
-        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button type="button" id="btn-start-report" class="btn btn-primary" aria-label="Report an accessibility barrier">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <line x1="12" y1="5" x2="12" y2="19"/>
           <line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
@@ -68,73 +91,141 @@
        ========================================================================= -->
   <div id="reporting-mode-banner" class="reporting-banner hidden" role="alert" aria-live="polite">
     <div class="banner-content">
-      <span class="banner-icon">📍</span>
+      <span class="banner-icon" aria-hidden="true">📍</span>
       <p><strong>Reporting Mode Active:</strong> Click anywhere on the map where you noticed an accessibility barrier.</p>
-      <button id="btn-cancel-report" class="btn btn-sm btn-ghost">Cancel</button>
+      <button type="button" id="btn-cancel-report" class="btn btn-sm btn-ghost">Cancel Reporting</button>
     </div>
   </div>
 
   <!-- =========================================================================
-       MAIN APPLICATION WORKSPACE (SIDEBAR + MAP)
+       RESPONSIVE MOBILE VIEW SWITCHER (Visible only on mobile screens < 768px)
+       ========================================================================= -->
+  <nav class="mobile-tab-bar" aria-label="Mobile view switcher">
+    <button type="button" class="mobile-tab active" data-view="map" aria-pressed="true">
+      <span aria-hidden="true">🗺️</span>
+      <span>Map View</span>
+    </button>
+    <button type="button" class="mobile-tab" data-view="sidebar" aria-pressed="false">
+      <span aria-hidden="true">📊</span>
+      <span>Dashboard &amp; Filters (<span id="mobile-report-count">0</span>)</span>
+    </button>
+  </nav>
+
+  <!-- =========================================================================
+       MAIN APPLICATION WORKSPACE (FLEXBOX/GRID DASHBOARD: SIDEBAR + MAP)
        ========================================================================= -->
   <main class="app-main" role="main">
     
-    <!-- SIDEBAR: STATS, FILTERS, AND REPORT LIST -->
-    <aside class="sidebar" id="app-sidebar" aria-label="District accessibility reports sidebar">
+    <!-- SIDEBAR: STATS, MULTI-SELECT FILTERS, AND REPORT LIST -->
+    <aside class="sidebar" id="app-sidebar" aria-label="District accessibility reports and filtering dashboard">
       
-      <!-- Statistics / Summary Dashboard -->
-      <section class="stats-card" aria-label="District barrier statistics">
-        <h2 class="section-title">District Overview</h2>
+      <!-- Section 1: District Overview Statistics Dashboard -->
+      <section class="stats-card" aria-labelledby="overview-heading">
+        <h2 id="overview-heading" class="section-title">District Accessibility Overview</h2>
         <div class="stats-grid">
-          <div class="stat-box">
+          <div class="stat-box" role="region" aria-label="Total accessibility barriers reported">
             <span class="stat-value" id="stat-total">0</span>
             <span class="stat-label">Total Barriers</span>
           </div>
-          <div class="stat-box">
+          <div class="stat-box high-priority" role="region" aria-label="High priority action items">
             <span class="stat-value" id="stat-high">0</span>
             <span class="stat-label">High Priority</span>
           </div>
-          <div class="stat-box">
+          <div class="stat-box resolved-box" role="region" aria-label="Resolved accessibility improvements">
             <span class="stat-value" id="stat-resolved">0</span>
             <span class="stat-label">Resolved</span>
+          </div>
+          <div class="stat-box upvote-box" role="region" aria-label="Total citizen confirmations">
+            <span class="stat-value" id="stat-upvotes">0</span>
+            <span class="stat-label">Confirmations</span>
           </div>
         </div>
       </section>
 
-      <!-- Filter by Category -->
-      <section class="filter-section" aria-label="Filter reports by category">
+      <!-- Section 2: Advanced Multi-Select Filtering & Search System -->
+      <section class="filter-section" aria-labelledby="filter-heading">
         <div class="filter-header">
-          <h3 class="filter-title">Filter by Issue Category</h3>
-          <button id="btn-reset-filters" class="btn-link hidden">Reset</button>
+          <h2 id="filter-heading" class="filter-title">Filter District Reports</h2>
+          <div class="filter-actions">
+            <button type="button" id="btn-select-all" class="btn-link">Select All</button>
+            <span class="sep" aria-hidden="true">&bull;</span>
+            <button type="button" id="btn-reset-filters" class="btn-link">Reset</button>
+          </div>
         </div>
-        <div class="category-filters" id="category-filter-list" role="group" aria-label="Category filter options">
-          <button class="chip active" data-category="ALL" aria-pressed="true">
-            All (<span id="count-ALL">0</span>)
-          </button>
-          <button class="chip" data-category="RAMP" aria-pressed="false">
-            ♿ Broken Ramp (<span id="count-RAMP">0</span>)
-          </button>
-          <button class="chip" data-category="SIDEWALK" aria-pressed="false">
-            🚧 Blocked Sidewalk (<span id="count-SIDEWALK">0</span>)
-          </button>
-          <button class="chip" data-category="TACTILE" aria-pressed="false">
-            🦯 No Tactile Paving (<span id="count-TACTILE">0</span>)
-          </button>
-          <button class="chip" data-category="SIGNAL" aria-pressed="false">
-            🔊 Audible Signal (<span id="count-SIGNAL">0</span>)
-          </button>
-          <button class="chip" data-category="SURFACE" aria-pressed="false">
-            ⚠️ Uneven Surface (<span id="count-SURFACE">0</span>)
-          </button>
-          <button class="chip" data-category="OTHER" aria-pressed="false">
-            📌 Other (<span id="count-OTHER">0</span>)
-          </button>
+
+        <!-- Search Bar -->
+        <div class="search-wrapper">
+          <label for="filter-search" class="sr-only">Search barriers by title, landmark, or description</label>
+          <input type="search" id="filter-search" class="search-input" 
+                 placeholder="🔍 Search street, landmark, or description..." 
+                 aria-label="Search barriers by title, landmark, or description" />
+        </div>
+
+        <!-- Severity Filter Dropdown -->
+        <div class="severity-filter-group">
+          <label for="filter-severity" class="form-label-inline">Urgency Level:</label>
+          <select id="filter-severity" class="filter-select" aria-label="Filter by barrier severity level">
+            <option value="ALL">All Urgency &amp; Status Levels</option>
+            <option value="HIGH">🔴 High Priority (Wheelchair/Mobility Blocked)</option>
+            <option value="MEDIUM">🟠 Medium Priority (Hazard / Difficulty)</option>
+            <option value="LOW">🟢 Low Priority (Minor Inconvenience)</option>
+            <option value="RESOLVED">✔ Resolved Improvements Only</option>
+          </select>
+        </div>
+
+        <!-- Category Multi-Select Checklist -->
+        <div class="category-filters" id="category-filter-list" role="group" aria-label="Toggle issue categories">
+          <label class="filter-chip active" data-category="ALL">
+            <input type="checkbox" checked value="ALL" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">🌐</span>
+            <span class="chip-label">All Categories</span>
+            <span class="chip-count" id="count-ALL">0</span>
+          </label>
+          <label class="filter-chip active" data-category="RAMP">
+            <input type="checkbox" checked value="RAMP" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">♿</span>
+            <span class="chip-label">Broken Ramp</span>
+            <span class="chip-count" id="count-RAMP">0</span>
+          </label>
+          <label class="filter-chip active" data-category="SIDEWALK">
+            <input type="checkbox" checked value="SIDEWALK" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">🚧</span>
+            <span class="chip-label">Blocked Sidewalk</span>
+            <span class="chip-count" id="count-SIDEWALK">0</span>
+          </label>
+          <label class="filter-chip active" data-category="TACTILE">
+            <input type="checkbox" checked value="TACTILE" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">🦯</span>
+            <span class="chip-label">No Tactile Paving</span>
+            <span class="chip-count" id="count-TACTILE">0</span>
+          </label>
+          <label class="filter-chip active" data-category="SIGNAL">
+            <input type="checkbox" checked value="SIGNAL" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">🔊</span>
+            <span class="chip-label">Audible Signal</span>
+            <span class="chip-count" id="count-SIGNAL">0</span>
+          </label>
+          <label class="filter-chip active" data-category="SURFACE">
+            <input type="checkbox" checked value="SURFACE" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">⚠️</span>
+            <span class="chip-label">Uneven Surface</span>
+            <span class="chip-count" id="count-SURFACE">0</span>
+          </label>
+          <label class="filter-chip active" data-category="OTHER">
+            <input type="checkbox" checked value="OTHER" class="sr-only" />
+            <span class="chip-icon" aria-hidden="true">📌</span>
+            <span class="chip-label">Other Barrier</span>
+            <span class="chip-count" id="count-OTHER">0</span>
+          </label>
         </div>
       </section>
 
-      <!-- Sidebar Report List -->
-      <section class="reports-list-section">
-        <h3 class="section-title">Reported Barriers in District</h3>
+      <!-- Section 3: Reported Barriers Feed -->
+      <section class="reports-list-section" aria-labelledby="list-heading">
+        <h2 id="list-heading" class="section-title">
+          <span>District Barrier Reports</span>
+          <span class="filtered-badge" id="filtered-count-badge">Showing All</span>
+        </h2>
         <div id="reports-list-container" class="reports-list" role="feed" aria-busy="false">
           <!-- Dynamically populated by UIController -->
           <div class="empty-state">
@@ -143,19 +234,45 @@
         </div>
       </section>
 
-      <!-- Footer Info -->
-      <footer class="sidebar-footer">
-        <p>Built for the <strong>Congressional App Challenge</strong>.</p>
-        <p class="footnote">Data is crowdsourced for civic inclusion &bull; Powered by Leaflet &amp; Firebase.</p>
+      <!-- Section 4: Official Congressional District Link & Footer -->
+      <footer class="sidebar-footer" role="contentinfo">
+        <div class="congress-district-banner">
+          <div class="congress-icon" aria-hidden="true">🏛️</div>
+          <div class="congress-text">
+            <h4>Congressional District Portal</h4>
+            <p>Connect with your U.S. Representative to share accessibility reports and advocate for ADA repairs.</p>
+            <div class="congress-links">
+              <a href="https://www.house.gov/representatives/find-your-representative" 
+                 target="_blank" rel="noopener noreferrer" 
+                 class="external-link"
+                 aria-label="Find Your Official Congressional Representative Office (opens in new tab)">
+                <span>Find Your Representative Office</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+              <a href="https://www.congress.gov" 
+                 target="_blank" rel="noopener noreferrer" 
+                 class="external-link"
+                 aria-label="Visit U.S. Congress Official Legislation Portal (opens in new tab)">
+                <span>Congress.gov Official Site</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
+        </div>
+        <p class="footnote">
+          Built for the <strong>Congressional App Challenge</strong> &bull; 
+          Powered by Leaflet.js &amp; Firebase Realtime Database.
+        </p>
       </footer>
     </aside>
 
     <!-- MAP CONTAINER -->
-    <div class="map-wrapper">
-      <div id="map" class="map-container" aria-label="Interactive map of local congressional district showing accessibility barriers"></div>
+    <div class="map-wrapper" id="map-wrapper">
+      <div id="map" class="map-container" aria-label="Interactive map of local congressional district showing accessibility barriers" tabindex="0"></div>
       
-      <!-- Map Overlay Controls -->
-      <div class="map-overlay-legend" aria-label="Map legend">
+      <!-- High-Contrast Floating Map Legend -->
+      <div class="map-overlay-legend" role="region" aria-label="Map marker color legend">
+        <span class="legend-title">Legend:</span>
         <span class="legend-item"><span class="legend-dot high"></span> High Severity</span>
         <span class="legend-item"><span class="legend-dot medium"></span> Medium</span>
         <span class="legend-item"><span class="legend-dot low"></span> Low</span>
@@ -165,13 +282,13 @@
   </main>
 
   <!-- =========================================================================
-       REPORT BARRIER MODAL FORM
+       REPORT BARRIER MODAL FORM (WCAG AAA Accessible & Touch-Friendly)
        ========================================================================= -->
   <dialog id="report-modal" class="modal" aria-labelledby="modal-title">
     <div class="modal-card">
       <header class="modal-header">
         <h2 id="modal-title" class="modal-title">Report Accessibility Barrier</h2>
-        <button id="btn-close-modal" class="btn-close" aria-label="Close dialog">&times;</button>
+        <button type="button" id="btn-close-modal" class="btn-close" aria-label="Close dialog">&times;</button>
       </header>
 
       <form id="report-form" class="report-form" novalidate>
@@ -179,8 +296,8 @@
         <div class="form-group">
           <label for="report-location-title" class="form-label">Location / Landmark Name *</label>
           <input type="text" id="report-location-title" name="title" class="form-input" 
-                 placeholder="e.g., NE corner of Main St &amp; 5th Ave" required />
-          <div class="location-coords" id="modal-coords-display">
+                 placeholder="e.g., NE corner of Main St &amp; 5th Ave" required aria-required="true" />
+          <div class="location-coords" id="modal-coords-display" role="status">
             Selected Coordinates: --, --
           </div>
         </div>
@@ -188,14 +305,14 @@
         <!-- Issue Category Selector -->
         <div class="form-group">
           <label for="report-category" class="form-label">Issue Category *</label>
-          <select id="report-category" name="category" class="form-select" required>
+          <select id="report-category" name="category" class="form-select" required aria-required="true">
             <option value="" disabled selected>-- Select barrier category --</option>
-            <option value="RAMP">♿ Broken or Missing Ramp</option>
+            <option value="RAMP">♿ Broken or Missing Wheelchair Ramp</option>
             <option value="SIDEWALK">🚧 Blocked Sidewalk / Obstruction</option>
             <option value="TACTILE">🦯 Missing Tactile Paving / Truncated Domes</option>
             <option value="SIGNAL">🔊 Defective / Missing Audible Crossing Signal</option>
             <option value="SURFACE">⚠️ Uneven Surface / Pothole / Cracks</option>
-            <option value="OTHER">📌 Other Accessibility Issue</option>
+            <option value="OTHER">📌 Other Accessibility Barrier</option>
           </select>
         </div>
 
@@ -205,17 +322,17 @@
           <div class="severity-options" role="radiogroup" aria-label="Select severity level">
             <label class="severity-option high">
               <input type="radio" name="severity" value="HIGH" checked />
-              <span class="severity-tag">High</span>
+              <span class="severity-tag">High Urgency</span>
               <span class="severity-desc">Prevents wheelchair/mobility access</span>
             </label>
             <label class="severity-option medium">
               <input type="radio" name="severity" value="MEDIUM" />
-              <span class="severity-tag">Medium</span>
-              <span class="severity-desc">Significant difficulty or hazard</span>
+              <span class="severity-tag">Medium Urgency</span>
+              <span class="severity-desc">Significant hazard or difficulty</span>
             </label>
             <label class="severity-option low">
               <input type="radio" name="severity" value="LOW" />
-              <span class="severity-tag">Low</span>
+              <span class="severity-tag">Low Urgency</span>
               <span class="severity-desc">Minor inconvenience</span>
             </label>
           </div>
@@ -225,7 +342,7 @@
         <div class="form-group">
           <label for="report-description" class="form-label">Description &amp; Suggested Fix *</label>
           <textarea id="report-description" name="description" class="form-textarea" rows="3"
-                    placeholder="Describe the barrier and how it affects community members (e.g., curb cut is cracked and flooded after rain)..." required></textarea>
+                    placeholder="Describe the barrier and how it affects community members (e.g., curb cut is cracked and flooded after rain)..." required aria-required="true"></textarea>
         </div>
 
         <!-- Hidden input for coordinates -->
@@ -252,14 +369,14 @@
           <span id="details-category-badge" class="badge">Category</span>
           <span id="details-severity-badge" class="badge">Severity</span>
         </div>
-        <button id="btn-close-details" class="btn-close" aria-label="Close details">&times;</button>
+        <button type="button" id="btn-close-details" class="btn-close" aria-label="Close details">&times;</button>
       </header>
       
       <div class="details-body">
         <h3 id="details-title" class="details-title">Location Title</h3>
         <p id="details-description" class="details-description"></p>
         
-        <div class="details-meta">
+        <div class="details-meta" role="region" aria-label="Report metadata">
           <div class="meta-item">
             <span class="meta-label">Coordinates:</span>
             <span id="details-coords"></span>
@@ -272,14 +389,18 @@
             <span class="meta-label">Status:</span>
             <span id="details-status" class="status-pill">OPEN</span>
           </div>
+          <div class="meta-item">
+            <span class="meta-label">Community Support:</span>
+            <span id="details-upvote-summary" class="upvote-highlight">1 citizen confirmation</span>
+          </div>
         </div>
       </div>
 
       <footer class="modal-footer details-actions">
-        <button id="btn-upvote-report" class="btn btn-secondary" aria-label="Support this report">
+        <button type="button" id="btn-upvote-report" class="btn btn-secondary" aria-label="Support this report by confirming the barrier exists">
           <span>👍 Confirm / Upvote (<span id="details-upvotes">0</span>)</span>
         </button>
-        <button id="btn-resolve-report" class="btn btn-success" aria-label="Mark as resolved">
+        <button type="button" id="btn-resolve-report" class="btn btn-success" aria-label="Mark this barrier as resolved">
           <span>✔ Mark Resolved</span>
         </button>
       </footer>
@@ -287,7 +408,7 @@
   </dialog>
 
   <!-- =========================================================================
-       TOAST NOTIFICATION FEEDBACK
+       TOAST NOTIFICATION FEEDBACK (Accessible Live Region)
        ========================================================================= -->
   <div id="toast-container" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
