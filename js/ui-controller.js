@@ -1,21 +1,23 @@
 /**
  * ============================================================================
- * ACCESSYOURDISTRICT - UI CONTROLLER (DASHBOARD, A11Y TOOLBAR & FILTERS)
+ * ACCESSYOURDISTRICT - UI CONTROLLER (DASHBOARD, CIVIC DIRECTORY & FILTERS)
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC & DESIGN JUDGING EXPLANATION:
- * --------------------------------------
+ * CS LOGIC, SOCIETAL LAYER & DESIGN EXPLANATION:
+ * ----------------------------------------------
  * 1. Accessibility-First Architecture:
  *    - Manages WCAG AAA-compliant text scaling (`data-font-size`) and ultra
  *      high-contrast theme toggling (`data-theme`).
  *    - Announces dynamic updates to screen readers via ARIA live regions.
  *
  * 2. Advanced Multi-Select Filtering & Search Engine:
- *    - Implements an O(n) filter pipeline combining:
- *      (a) Text substring matching across title, landmark, and description.
- *      (b) Categorical multi-select set inclusion (`selectedCategories`).
- *      (c) Urgency / resolution severity filtering.
+ *    - Implements an O(n) filter pipeline combining text substring matching,
+ *      categorical multi-select set inclusion (`selectedCategories`), and severity.
+ *
+ * 3. Government & Congressional Directory (Societal Use Layer):
+ *    - Searchable directory of verified ADA-accessible civic offices that
+ *      connects constituents directly to municipal DPW and congressional staff.
  * ============================================================================
  */
 
@@ -25,30 +27,41 @@ export class UIController {
   /**
    * @param {Object} callbacks
    * @param {Function} callbacks.onReportSubmit
-   * @param {Function} callbacks.onFilterChange - Called with filtered report list & active category set
-   * @param {Function} callbacks.onReportSelect - Called when user selects a report from the list
+   * @param {Function} callbacks.onFilterChange
+   * @param {Function} callbacks.onReportSelect
+   * @param {Function} callbacks.onCivicOfficeSelect
    * @param {Function} callbacks.onUpvote
    * @param {Function} callbacks.onResolve
+   * @param {Function} callbacks.onExportCSV
    */
   constructor(callbacks) {
     this.callbacks = callbacks;
 
-    // Active dataset reference
+    // Active datasets
     this.allReports = [];
     this.filteredReports = [];
+    this.allCivicOffices = [];
+    this.filteredCivicOffices = [];
 
-    // Advanced Filter State
+    // Filter State
     this.selectedCategories = new Set(["ALL", "RAMP", "SIDEWALK", "TACTILE", "SIGNAL", "SURFACE", "OTHER"]);
     this.selectedSeverity = "ALL";
     this.searchQuery = "";
+    this.civicSearchQuery = "";
 
-    // Currently opened report in details modal
+    // Active Sidebar Tab ('reports' | 'civic')
+    this.activeSidebarTab = "reports";
+
+    // Currently opened modals
     this.selectedReportId = null;
+    this.selectedCivicOfficeId = null;
 
-    // Cache DOM references
+    // DOM references
     this.reportsContainer = document.getElementById("reports-list-container");
+    this.civicContainer = document.getElementById("civic-list-container");
     this.reportModal = document.getElementById("report-modal");
     this.detailsModal = document.getElementById("details-modal");
+    this.civicModal = document.getElementById("civic-modal");
     this.reportForm = document.getElementById("report-form");
     this.toastContainer = document.getElementById("toast-container");
     this.dbStatusBadge = document.getElementById("db-status-badge");
@@ -56,7 +69,7 @@ export class UIController {
   }
 
   /**
-   * Attach all UI event listeners (A11Y toolbar, search, multi-select filters, mobile switcher).
+   * Attach all UI event listeners.
    */
   init() {
     // 1. Accessibility Toolbar - Text Scaler
@@ -88,12 +101,21 @@ export class UIController {
       });
     });
 
-    // Default mobile view to "map"
     if (this.appMain) {
       this.appMain.setAttribute("data-mobile-view", "map");
     }
 
-    // 4. Multi-Select Category Checkbox Filter Chips
+    // 4. Sidebar Top Tab Switcher ('Citizen Reports' vs 'Civic Directory')
+    const tabReportsBtn = document.getElementById("tab-btn-reports");
+    const tabCivicBtn = document.getElementById("tab-btn-civic");
+    if (tabReportsBtn) {
+      tabReportsBtn.addEventListener("click", () => this.setSidebarTab("reports"));
+    }
+    if (tabCivicBtn) {
+      tabCivicBtn.addEventListener("click", () => this.setSidebarTab("civic"));
+    }
+
+    // 5. Multi-Select Category Checkbox Filter Chips
     const chips = document.querySelectorAll(".category-filters .filter-chip");
     chips.forEach((chip) => {
       chip.addEventListener("click", (e) => {
@@ -103,7 +125,7 @@ export class UIController {
       });
     });
 
-    // 5. Select All & Reset Filter Buttons
+    // 6. Select All & Reset Filter Buttons
     const selectAllBtn = document.getElementById("btn-select-all");
     if (selectAllBtn) {
       selectAllBtn.addEventListener("click", () => this.selectAllCategories());
@@ -114,7 +136,7 @@ export class UIController {
       resetBtn.addEventListener("click", () => this.resetAllFilters());
     }
 
-    // 6. Severity / Urgency Filter Dropdown
+    // 7. Severity / Urgency Filter Dropdown
     const severitySelect = document.getElementById("filter-severity");
     if (severitySelect) {
       severitySelect.addEventListener("change", (e) => {
@@ -123,7 +145,7 @@ export class UIController {
       });
     }
 
-    // 7. Search Input Box
+    // 8. Citizen Reports Search Input Box
     const searchInput = document.getElementById("filter-search");
     if (searchInput) {
       searchInput.addEventListener("input", (e) => {
@@ -132,25 +154,66 @@ export class UIController {
       });
     }
 
-    // 8. Close Report Modal Buttons
+    // 9. Government Directory Search Input Box
+    const civicSearchInput = document.getElementById("civic-search");
+    if (civicSearchInput) {
+      civicSearchInput.addEventListener("input", (e) => {
+        this.civicSearchQuery = e.target.value.trim().toLowerCase();
+        this.renderCivicList();
+      });
+    }
+
+    // 10. CSV Export Buttons (Header & Footer)
+    const exportBtns = [document.getElementById("btn-export-csv"), document.getElementById("btn-export-csv-footer")];
+    exportBtns.forEach((btn) => {
+      if (btn) {
+        btn.addEventListener("click", () => {
+          if (typeof this.callbacks.onExportCSV === "function") {
+            this.callbacks.onExportCSV();
+          }
+        });
+      }
+    });
+
+    // 11. Close Report Modal Buttons
     const closeReportBtn = document.getElementById("btn-close-modal");
     const cancelReportBtn = document.getElementById("btn-cancel-modal");
     [closeReportBtn, cancelReportBtn].forEach((btn) => {
       if (btn) btn.addEventListener("click", () => this.closeReportModal());
     });
 
-    // 9. Report Form Submit Handler
+    // 12. Report Form Submit Handler
     if (this.reportForm) {
       this.reportForm.addEventListener("submit", (e) => this.handleReportSubmit(e));
     }
 
-    // 10. Details Modal Close Button
+    // 13. Details Modal Close Button
     const closeDetailsBtn = document.getElementById("btn-close-details");
     if (closeDetailsBtn) {
       closeDetailsBtn.addEventListener("click", () => this.closeDetailsModal());
     }
 
-    // 11. Upvote Button in Details Modal
+    // 14. Civic Office Modal Close & Zoom Buttons
+    const closeCivicBtn = document.getElementById("btn-close-civic");
+    if (closeCivicBtn) {
+      closeCivicBtn.addEventListener("click", () => this.closeCivicModal());
+    }
+
+    const zoomCivicBtn = document.getElementById("btn-zoom-civic");
+    if (zoomCivicBtn) {
+      zoomCivicBtn.addEventListener("click", () => {
+        if (this.selectedCivicOfficeId) {
+          const office = this.allCivicOffices.find((o) => o.id === this.selectedCivicOfficeId);
+          if (office && typeof this.callbacks.onCivicOfficeSelect === "function") {
+            this.callbacks.onCivicOfficeSelect(office.lat, office.lng, office.id);
+            this.closeCivicModal();
+            this.setMobileView("map");
+          }
+        }
+      });
+    }
+
+    // 15. Upvote Button in Details Modal
     const upvoteBtn = document.getElementById("btn-upvote-report");
     if (upvoteBtn) {
       upvoteBtn.addEventListener("click", () => {
@@ -160,7 +223,7 @@ export class UIController {
       });
     }
 
-    // 12. Resolve Button in Details Modal
+    // 16. Resolve Button in Details Modal
     const resolveBtn = document.getElementById("btn-resolve-report");
     if (resolveBtn) {
       resolveBtn.addEventListener("click", () => {
@@ -171,11 +234,43 @@ export class UIController {
       });
     }
 
-    // 13. Custom Window Event for Leaflet Popup Details Button
+    // 17. Custom Window Events for Leaflet Popup Buttons
     window.addEventListener("open-report-details", (event) => {
       const reportId = event.detail;
       this.openDetailsModal(reportId);
     });
+
+    window.addEventListener("open-civic-details", (event) => {
+      const officeId = event.detail;
+      this.openCivicModal(officeId);
+    });
+  }
+
+  /**
+   * Switch between 'Citizen Reports' tab and 'Civic Directory' tab in the sidebar.
+   * @param {string} tab - 'reports' | 'civic'
+   */
+  setSidebarTab(tab) {
+    this.activeSidebarTab = tab;
+
+    const tabReportsBtn = document.getElementById("tab-btn-reports");
+    const tabCivicBtn = document.getElementById("tab-btn-civic");
+    const panelReports = document.getElementById("panel-reports");
+    const panelCivic = document.getElementById("panel-civic");
+
+    const isReports = tab === "reports";
+
+    if (tabReportsBtn) {
+      tabReportsBtn.classList.toggle("active", isReports);
+      tabReportsBtn.setAttribute("aria-selected", isReports ? "true" : "false");
+    }
+    if (tabCivicBtn) {
+      tabCivicBtn.classList.toggle("active", !isReports);
+      tabCivicBtn.setAttribute("aria-selected", !isReports ? "true" : "false");
+    }
+
+    if (panelReports) panelReports.classList.toggle("hidden", !isReports);
+    if (panelCivic) panelCivic.classList.toggle("hidden", isReports);
   }
 
   /**
@@ -244,7 +339,6 @@ export class UIController {
    */
   toggleCategoryFilter(category) {
     if (category === "ALL") {
-      // Toggle ALL on or off
       const allSelected = this.selectedCategories.has("ALL");
       if (allSelected) {
         this.selectedCategories.clear();
@@ -253,13 +347,11 @@ export class UIController {
         return;
       }
     } else {
-      // Toggle specific category
       if (this.selectedCategories.has(category)) {
         this.selectedCategories.delete(category);
         this.selectedCategories.delete("ALL");
       } else {
         this.selectedCategories.add(category);
-        // If all 6 specific categories are selected, also check ALL
         const specifics = ["RAMP", "SIDEWALK", "TACTILE", "SIGNAL", "SURFACE", "OTHER"];
         if (specifics.every((c) => this.selectedCategories.has(c))) {
           this.selectedCategories.add("ALL");
@@ -338,9 +430,11 @@ export class UIController {
   /**
    * Receive latest dataset from database and trigger filter pipeline.
    * @param {Array<Object>} reports
+   * @param {Array<Object>} civicOffices
    */
-  updateSidebar(reports) {
+  updateSidebar(reports, civicOffices = []) {
     this.allReports = reports;
+    this.allCivicOffices = civicOffices;
 
     // 1. Compute Overall KPIs
     const total = reports.length;
@@ -353,6 +447,12 @@ export class UIController {
     document.getElementById("stat-resolved").textContent = resolvedCount;
     const upvotesEl = document.getElementById("stat-upvotes");
     if (upvotesEl) upvotesEl.textContent = totalUpvotes;
+
+    // Update Tab Counts
+    const tabReportsCount = document.getElementById("tab-count-reports");
+    if (tabReportsCount) tabReportsCount.textContent = total;
+    const tabCivicCount = document.getElementById("tab-count-civic");
+    if (tabCivicCount) tabCivicCount.textContent = civicOffices.length;
 
     // 2. Compute Category Counts
     const categoryCounts = {
@@ -378,8 +478,9 @@ export class UIController {
       if (el) el.textContent = categoryCounts[cat];
     });
 
-    // 3. Run multi-select filter pipeline
+    // 3. Run multi-select filter pipeline and render civic directory
     this.applyFilters();
+    this.renderCivicList();
   }
 
   /**
@@ -387,7 +488,6 @@ export class UIController {
    */
   applyFilters() {
     this.filteredReports = this.allReports.filter((report) => {
-      // (a) Search query check (title, description)
       if (this.searchQuery) {
         const textToSearch = `${report.title} ${report.description}`.toLowerCase();
         if (!textToSearch.includes(this.searchQuery)) {
@@ -395,12 +495,10 @@ export class UIController {
         }
       }
 
-      // (b) Category check
       if (!this.selectedCategories.has("ALL") && !this.selectedCategories.has(report.category)) {
         return false;
       }
 
-      // (c) Severity / status check
       if (this.selectedSeverity !== "ALL") {
         if (this.selectedSeverity === "RESOLVED") {
           if (report.status !== "RESOLVED") return false;
@@ -414,7 +512,6 @@ export class UIController {
       return true;
     });
 
-    // Update count badges
     const filteredCountBadge = document.getElementById("filtered-count-badge");
     if (filteredCountBadge) {
       filteredCountBadge.textContent = 
@@ -423,12 +520,6 @@ export class UIController {
           : `Filtered (${this.filteredReports.length}/${this.allReports.length})`;
     }
 
-    const mobileCountEl = document.getElementById("mobile-report-count");
-    if (mobileCountEl) {
-      mobileCountEl.textContent = this.filteredReports.length;
-    }
-
-    // Render filtered cards and notify App / MapController
     this.renderReportsList();
     if (typeof this.callbacks.onFilterChange === "function") {
       this.callbacks.onFilterChange(this.filteredReports, this.selectedCategories);
@@ -485,7 +576,6 @@ export class UIController {
 
     this.reportsContainer.innerHTML = markup;
 
-    // Attach click and keyboard handlers to each card
     const cards = this.reportsContainer.querySelectorAll(".report-card");
     cards.forEach((card) => {
       const reportId = card.getAttribute("data-report-id");
@@ -493,9 +583,7 @@ export class UIController {
       card.addEventListener("click", () => {
         const target = this.allReports.find((r) => r.id === reportId);
         if (target) {
-          // Switch to map view on mobile when clicking a report card!
           this.setMobileView("map");
-
           if (typeof this.callbacks.onReportSelect === "function") {
             this.callbacks.onReportSelect(target.lat, target.lng, reportId);
           }
@@ -509,6 +597,128 @@ export class UIController {
         }
       });
     });
+  }
+
+  /**
+   * Render Government & Civic Directory cards in the sidebar.
+   */
+  renderCivicList() {
+    if (!this.civicContainer) return;
+
+    const filtered = this.allCivicOffices.filter((o) => {
+      if (!this.civicSearchQuery) return true;
+      const textToSearch = `${o.name} ${o.type} ${o.address} ${o.services}`.toLowerCase();
+      return textToSearch.includes(this.civicSearchQuery);
+    });
+
+    const badgeEl = document.getElementById("civic-filtered-badge");
+    if (badgeEl) {
+      badgeEl.textContent = `Showing ${filtered.length} of ${this.allCivicOffices.length}`;
+    }
+
+    if (filtered.length === 0) {
+      this.civicContainer.innerHTML = `
+        <div class="empty-state">
+          <p>No government offices match your search criteria.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const markup = filtered.map((office) => {
+      return `
+        <article class="report-card civic-office-card" 
+                 role="article" 
+                 data-office-id="${office.id}"
+                 tabindex="0"
+                 aria-label="${office.name}, Verified Accessible Government Office">
+          <div class="report-card-header">
+            <span class="report-card-category civic-card-category">
+              🏛️ VERIFIED ACCESSIBLE
+            </span>
+            <span class="badge civic-pill-badge">
+              ✔ ${office.type}
+            </span>
+          </div>
+          <h3 class="report-card-title">${office.name}</h3>
+          <p class="report-card-desc" style="margin-bottom: 0.35rem;">
+            <strong>Address:</strong> ${office.address}
+          </p>
+          <p class="report-card-desc" style="font-size: 0.78rem;">
+            ${office.services}
+          </p>
+          <div class="report-card-footer">
+            <span>📞 ${office.phone}</span>
+            <span class="report-card-upvotes" style="color: #047857;">🏛️ Verified ADA Features</span>
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    this.civicContainer.innerHTML = markup;
+
+    const cards = this.civicContainer.querySelectorAll(".report-card");
+    cards.forEach((card) => {
+      const officeId = card.getAttribute("data-office-id");
+
+      card.addEventListener("click", () => {
+        const target = this.allCivicOffices.find((o) => o.id === officeId);
+        if (target) {
+          this.openCivicModal(target.id);
+        }
+      });
+
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+  }
+
+  /**
+   * Open Civic Office profile modal with ADA verification details.
+   * @param {string} officeId
+   */
+  openCivicModal(officeId) {
+    const office = this.allCivicOffices.find((o) => o.id === officeId);
+    if (!office || !this.civicModal) return;
+
+    this.selectedCivicOfficeId = officeId;
+
+    document.getElementById("civic-type-badge").textContent = office.type || "GOVERNMENT";
+    document.getElementById("civic-modal-title").textContent = office.name;
+    document.getElementById("civic-modal-address").textContent = office.address;
+    document.getElementById("civic-modal-services").textContent = office.services;
+    document.getElementById("civic-modal-phone").textContent = office.phone;
+
+    const featuresContainer = document.getElementById("civic-modal-features");
+    if (featuresContainer) {
+      const pills = (office.adaFeatures || [])
+        .map((f) => `<span class="ada-feature-pill">✔ ${f}</span>`)
+        .join("");
+      featuresContainer.innerHTML = pills || `<span class="ada-feature-pill">✔ Fully Accessible</span>`;
+    }
+
+    if (typeof this.civicModal.showModal === "function") {
+      this.civicModal.showModal();
+    } else {
+      this.civicModal.setAttribute("open", "true");
+    }
+  }
+
+  /**
+   * Close Civic Office profile modal.
+   */
+  closeCivicModal() {
+    if (!this.civicModal) return;
+    if (typeof this.civicModal.close === "function") {
+      this.civicModal.close();
+    } else {
+      this.civicModal.removeAttribute("open");
+    }
+    this.selectedCivicOfficeId = null;
   }
 
   /**

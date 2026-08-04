@@ -18,10 +18,14 @@
  *      markers without re-rendering the entire layer.
  *
  * 3. Geolocation & Interactive Reporting Mode:
- *    - Leverages HTML5 Geolocation API (`navigator.geolocation`) to center on
- *      the citizen's actual congressional district.
+ *    - Leverages HTML5 Geolocation API (`navigator.geolocation`) to automatically
+ *      center on the citizen's actual congressional district when the app opens.
  *    - In "Reporting Mode", event delegation captures pixel clicks and converts
  *      them into WGS84 geographic coordinates (Latitude, Longitude).
+ *
+ * 4. Civic Resource Layer (Government Directory):
+ *    - Renders official local government and congressional district offices
+ *      with a distinct 'Verified Accessible' badge (`🏛️`).
  * ============================================================================
  */
 
@@ -45,11 +49,13 @@ export class MapController {
    * @param {Object} options
    * @param {Function} options.onReportClick - Callback when user clicks map in Reporting Mode
    * @param {Function} options.onMarkerDetailsClick - Callback when user clicks "View Details" on a pin
+   * @param {Function} [options.onCivicOfficeClick] - Callback when user clicks a civic office marker
    */
-  constructor(containerId, { onReportClick, onMarkerDetailsClick }) {
+  constructor(containerId, { onReportClick, onMarkerDetailsClick, onCivicOfficeClick }) {
     this.containerId = containerId;
     this.onReportClick = onReportClick;
     this.onMarkerDetailsClick = onMarkerDetailsClick;
+    this.onCivicOfficeClick = onCivicOfficeClick;
 
     /** @type {L.Map} */
     this.map = null;
@@ -57,14 +63,23 @@ export class MapController {
     /** @type {L.LayerGroup} */
     this.markerLayer = null;
 
+    /** @type {L.LayerGroup} */
+    this.civicLayer = null;
+
     /** @type {Map<string, L.Marker>} */
     this.markerMap = new Map();
+
+    /** @type {Map<string, L.Marker>} */
+    this.civicMarkerMap = new Map();
 
     /** @type {boolean} */
     this.isReportingMode = false;
 
     /** @type {L.Marker|null} */
     this.tempDraftMarker = null;
+
+    /** @type {L.Marker|null} */
+    this.userLocationMarker = null;
   }
 
   /**
@@ -85,8 +100,9 @@ export class MapController {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &bull; <strong>AccessYourDistrict</strong>'
     }).addTo(this.map);
 
-    // 3. Create a layer group to hold barrier markers
+    // 3. Create layer groups for barrier reports and civic directory offices
     this.markerLayer = L.layerGroup().addTo(this.map);
+    this.civicLayer = L.layerGroup().addTo(this.map);
 
     // 4. Attach Map Click Handler for Reporting Mode
     this.map.on("click", (event) => this.handleMapClick(event));
@@ -163,6 +179,8 @@ export class MapController {
 
   /**
    * Center map on user's actual congressional district using Geolocation API.
+   * Places a visual "You Are Here" pin when successful.
+   *
    * @param {Function} onSuccess
    * @param {Function} onError
    */
@@ -176,6 +194,35 @@ export class MapController {
       (position) => {
         const { latitude, longitude } = position.coords;
         this.map.setView([latitude, longitude], 15, { animate: true });
+
+        // Place a distinct blue "You Are Here" pulsing marker
+        if (this.userLocationMarker) {
+          this.userLocationMarker.setLatLng([latitude, longitude]);
+        } else {
+          const userIcon = L.divIcon({
+            className: "user-location-pin",
+            html: `
+              <div style="
+                width: 20px;
+                height: 20px;
+                background: #0d47a1;
+                border: 3px solid #ffffff;
+                border-radius: 50%;
+                box-shadow: 0 0 0 6px rgba(13, 71, 161, 0.3);
+              " title="Your Current Position"></div>
+            `,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+
+          this.userLocationMarker = L.marker([latitude, longitude], { 
+            icon: userIcon,
+            zIndexOffset: 1000
+          })
+            .addTo(this.map)
+            .bindTooltip("📍 You Are Here (My Location)", { direction: "top", offset: [0, -10] });
+        }
+
         if (onSuccess) onSuccess({ latitude, longitude });
       },
       (error) => {
@@ -198,6 +245,21 @@ export class MapController {
     this.map.setView([lat, lng], 17, { animate: true });
 
     const marker = this.markerMap.get(reportId);
+    if (marker) {
+      marker.openPopup();
+    }
+  }
+
+  /**
+   * Smoothly pan and zoom to a Government / Civic Office and open its popup.
+   * @param {number} lat
+   * @param {number} lng
+   * @param {string} officeId
+   */
+  focusOnCivicOffice(lat, lng, officeId) {
+    this.map.setView([lat, lng], 17, { animate: true });
+
+    const marker = this.civicMarkerMap.get(officeId);
     if (marker) {
       marker.openPopup();
     }
@@ -230,7 +292,7 @@ export class MapController {
   }
 
   /**
-   * Build HTML content for the Leaflet Popup attached to each marker.
+   * Build HTML content for the Leaflet Popup attached to each barrier marker.
    * @param {Object} report
    * @returns {string} HTML string
    */
@@ -267,7 +329,6 @@ export class MapController {
    * @param {Array<Object>} filteredReports
    */
   syncMarkers(filteredReports) {
-    // Track active report IDs in current filter view
     const activeIds = new Set();
 
     for (const report of filteredReports) {
@@ -278,12 +339,10 @@ export class MapController {
       const popupHtml = this.buildPopupHTML(report);
 
       if (existingMarker) {
-        // Update existing marker position & popup without recreating
         existingMarker.setLatLng([report.lat, report.lng]);
         existingMarker.setIcon(icon);
         existingMarker.setPopupContent(popupHtml);
       } else {
-        // Create new marker
         const newMarker = L.marker([report.lat, report.lng], {
           icon: icon,
           title: report.title
@@ -299,11 +358,106 @@ export class MapController {
       }
     }
 
-    // Remove markers that are no longer in the filtered dataset
     for (const [id, marker] of this.markerMap.entries()) {
       if (!activeIds.has(id)) {
         this.markerLayer.removeLayer(marker);
         this.markerMap.delete(id);
+      }
+    }
+  }
+
+  /**
+   * ============================================================================
+   * CIVIC RESOURCE LAYER (GOVERNMENT & CONGRESSIONAL DIRECTORY)
+   * ============================================================================
+   * Render official municipal and congressional offices on the map with a
+   * green 'Verified Accessible' badge (`🏛️`).
+   *
+   * @param {Array<Object>} civicOffices - Array of CivicOffice records
+   * @param {boolean} [visible=true] - Whether the civic layer is visible
+   */
+  syncCivicOffices(civicOffices, visible = true) {
+    if (!visible) {
+      this.civicLayer.clearLayers();
+      this.civicMarkerMap.clear();
+      return;
+    }
+
+    const activeIds = new Set();
+
+    for (const office of civicOffices) {
+      activeIds.add(office.id);
+
+      const existingMarker = this.civicMarkerMap.get(office.id);
+      const icon = L.divIcon({
+        className: "civic-pin-container",
+        html: `
+          <div class="custom-pin-icon" style="
+            background: #047857;
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(4, 120, 87, 0.4);
+          " title="${office.name} (Verified Accessible)" role="img" aria-label="${office.name}">
+            🏛️
+          </div>
+        `,
+        iconSize: [38, 38],
+        iconAnchor: [19, 38],
+        popupAnchor: [0, -34]
+      });
+
+      const featuresList = (office.adaFeatures || [])
+        .map((f) => `<span style="background:#ecfdf5; color:#047857; padding:2px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">✔ ${f}</span>`)
+        .join(" ");
+
+      const popupHtml = `
+        <div class="popup-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:0.72rem; font-weight:800; color:#047857; background:#ecfdf5; padding:2px 8px; border-radius:10px;">
+              🏛️ VERIFIED ACCESSIBLE
+            </span>
+            <span style="font-size:0.7rem; font-weight:700; color:#475569;">${office.type}</span>
+          </div>
+          <h4 class="popup-title">${office.name}</h4>
+          <p class="popup-desc" style="margin-bottom:6px;">
+            <strong>Address:</strong> ${office.address}<br>
+            <strong>Phone:</strong> ${office.phone}<br>
+            <strong>Services:</strong> ${office.services}
+          </p>
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+            ${featuresList}
+          </div>
+          <button class="btn btn-sm btn-success popup-btn"
+                  onclick="window.dispatchEvent(new CustomEvent('open-civic-details', { detail: '${office.id}' }))">
+            View Office &amp; Accessibility Profile
+          </button>
+        </div>
+      `;
+
+      if (existingMarker) {
+        existingMarker.setLatLng([office.lat, office.lng]);
+        existingMarker.setIcon(icon);
+        existingMarker.setPopupContent(popupHtml);
+      } else {
+        const newMarker = L.marker([office.lat, office.lng], {
+          icon: icon,
+          title: office.name,
+          zIndexOffset: 500
+        });
+
+        newMarker.bindPopup(popupHtml, {
+          closeButton: true,
+          autoPan: true
+        });
+
+        this.civicLayer.addLayer(newMarker);
+        this.civicMarkerMap.set(office.id, newMarker);
+      }
+    }
+
+    for (const [id, marker] of this.civicMarkerMap.entries()) {
+      if (!activeIds.has(id)) {
+        this.civicLayer.removeLayer(marker);
+        this.civicMarkerMap.delete(id);
       }
     }
   }

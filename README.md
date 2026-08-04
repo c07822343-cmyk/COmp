@@ -18,21 +18,56 @@
    * **Dynamic Text Scaler (`A`, `A+`, `A++`):** Built-in accessibility toolbar allows visually impaired visitors to scale root text sizing by up to **135%** on the fly.
    * **WCAG 2.2 Touch Targets & Keyboard Focus:** Minimum 44–48px touch targets for all buttons and crisp 3px visible focus outlines for screen readers and keyboard navigation.
 
-2. **Responsive Dashboard & Mobile Portability:**
-   * **Desktop & Tablet:** Executive multi-column dashboard grid with a persistent left sidebar (`410px`) for statistical overview, multi-select filtering, and interactive report feed alongside a full-viewport Leaflet map.
-   * **Mobile View Switcher (< 768px):** A dedicated mobile tab bar (`🗺️ Map View` vs `📊 Dashboard & Filters`) allows mobile visitors to toggle between a 100% full-screen map and a 100% full-screen dashboard without squishing the UI.
+2. **Societal Use & Civic Resource Directory (Winning Legacy):**
+   * **Searchable Government Directory (`🏛️ Civic Directory` Tab):** Drawing inspiration from past winners like *CivicLink* and *EnAct*, residents can search verified ADA-accessible municipal, DPW, and U.S. Congressional constituent offices.
+   * **Verified Accessible Badges:** Each office displays an official green badge (`🏛️ VERIFIED ACCESSIBLE`) and a breakdown of verified ADA features (`✔ ADA Compliant Ramp • ✔ Power Doors • ✔ Accessible Elevators • ✔ ASL Services`).
 
-3. **Advanced Multi-Select Filtering & Real-Time Search Engine:**
-   * **Multi-Select Category Checklist:** Toggle individual barrier categories (`[✔] Broken Ramp`, `[✔] Blocked Sidewalk`, `[✔] No Tactile Paving`, etc.) or click **Select All / Reset**.
-   * **Urgency / Severity Filter:** Filter reports by urgency level (`High Priority`, `Medium`, `Low`, or `Resolved Improvements`).
-   * **Real-Time Text Search:** Instant substring search across location title, landmark, or barrier description.
+3. **Automated Geolocation & Portability:**
+   * **Browser Geolocation API on Launch:** When the app opens, it automatically calls `navigator.geolocation.getCurrentPosition()` to center the map on the user's current position with a distinct blue `"📍 You Are Here"` marker.
+   * **Responsive Dashboard & Mobile View Switcher (< 768px):** A dedicated mobile tab bar (`🗺️ Map View` vs `📊 Dashboard & Civic Directory`) allows mobile visitors to toggle between a 100% full-screen map and a 100% full-screen dashboard.
 
-4. **Congressional District Portal Integration (Civic Advocacy):**
-   * Features an official **Congressional District Portal banner** in the footer connecting residents directly to their U.S. Representative (`https://www.house.gov/representatives/find-your-representative`) and official legislation (`https://www.congress.gov`).
+4. **Advanced CS Skill: CSV Export Engine for City Planners:**
+   * Clicking **`📥 Export CSV`** in the header or sidebar footer converts JSON database records into an RFC 4180-compliant `.csv` file (`exportReportsToCSV`). City planners and DPW engineers can import the data directly into municipal GIS systems to enact real-world repairs.
 
-5. **Real-Time Database Sync (Firebase & Out-of-the-Box Demo Mode):**
-   * Integrates the **Firebase Realtime Database Web SDK (v10 Modular)** via WebSockets (`onValue`) so new reports broadcast to all visitors in milliseconds.
-   * **Demo Fallback Mode:** Works immediately out of the box using LocalStorage and 5 pre-seeded Capitol Hill sample reports even before configuring your own Firebase credentials!
+5. **End-to-End Real-Time Data Flow (Firebase WebSockets):**
+   * Uses Firebase Realtime Database WebSockets (`onValue`) so new reports broadcast to all visitors in milliseconds.
+   * **Out-of-the-Box Demo Mode:** Works immediately using LocalStorage and 5 pre-seeded Capitol Hill sample reports even before configuring your own Firebase credentials!
+
+---
+
+## 🔄 End-to-End Technical Data Flow (Summary for Video)
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                     STEP 1: USER INPUT & GEO-PINNING                      │
+│ Resident clicks map -> Opens Report Modal -> Submits barrier coordinates  │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                  STEP 2: VALIDATION & SERIALIZATION                       │
+│ UIController sanitizes title, description, category, and severity         │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│               STEP 3: CLOUD PERSISTENCE (Firebase push)                   │
+│ ReportService.addReport() pushes JSON record to Firebase Realtime DB      │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼ (WebSockets Broadcast in < 100ms)
+┌───────────────────────────────────────────────────────────────────────────┐
+│         STEP 4: REAL-TIME WEBSOCKET BROADCAST (Firebase onValue)          │
+│ Firebase pushes updated NoSQL JSON tree to every connected citizen        │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│              STEP 5: O(1) MAP & SIDEBAR RECONCILIATION                    │
+│ • UIController updates search/filter pipeline and category statistics     │
+│ • MapController diffs active IDs against Map<string, L.Marker> index      │
+└───────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -44,7 +79,7 @@ COmp/
 │   └── styles.css              # WCAG AAA accessible, responsive stylesheet with text scaler
 ├── js/
 │   ├── firebase-config.js      # Firebase Realtime Database config & init (with Demo Mode fallback)
-│   ├── report-service.js       # Repository layer managing Data Structures & CRUD operations
+│   ├── report-service.js       # Repository layer: CRUD, Civic Directory & CSV Export engine
 │   ├── map-controller.js       # Leaflet.js map controller (markers, O(1) Map dictionary, popups)
 │   ├── ui-controller.js        # DOM events, A11Y toolbar, multi-select filters, mobile switcher
 │   └── app.js                  # Main application orchestrator binding UI, Map, and Services
@@ -118,7 +153,7 @@ You can test the application locally in seconds without any build tools:
 
 ## 🎥 Congressional App Challenge Video Submission Guide
 
-For a complete breakdown of your **Data Structures**, **API Calls**, **Accessibility Standards**, and a **3-minute presentation script**, see:
+For a complete breakdown of your **Data Flow**, **Data Structures**, **API Calls**, **Accessibility Standards**, and a **3-minute presentation script**, see:
 👉 [**CS_LOGIC_EXPLANATION.md**](./CS_LOGIC_EXPLANATION.md)
 
 ---

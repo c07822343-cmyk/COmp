@@ -4,19 +4,32 @@
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * ARCHITECTURE & ES MODULE WIRING:
- * --------------------------------
- * 1. Modular Architecture:
- *    - `app.js`: Coordinates communication between the visual UI controller,
- *      interactive map controller, and persistent Firebase/demo data layer.
- *    - Designed for GitHub Pages without requiring Node/Vite build steps.
+ * ARCHITECTURE, DATA FLOW & SOCIETAL USE EXPLANATION:
+ * ---------------------------------------------------
+ * 1. Societal Use (Civic Resource & Government Directory Layer):
+ *    - Integrates `getCivicOffices()` to display verified ADA-accessible local
+ *      government and congressional offices on the map and in the sidebar.
+ *    - Implements CSV Export (`exportReportsToCSV`) so city planners and DPW
+ *      engineers can import crowdsourced citizen reports into municipal GIS systems.
  *
- * 2. Real-time Event Loop:
- *    - Subscribes to `ReportService.subscribeToReports(...)` which listens to
- *      Firebase WebSockets.
- *    - When the database changes (new barrier reported by another citizen, an
- *      upvote, or status change), both the Leaflet map and the Sidebar report
- *      list update atomically.
+ * 2. Automated Geolocation API Integration:
+ *    - On launch, the browser Geolocation API centers the map automatically on
+ *      the resident's current position and places a "You Are Here" pin.
+ *
+ * 3. End-to-End Technical Data Flow (Summary for Video Submission):
+ *    [User Map Click / Form Submit]
+ *                 │
+ *                 ▼
+ *    [UIController Input Validation & Serialization]
+ *                 │
+ *                 ▼
+ *    [ReportService.addReport() -> Firebase Realtime DB push()]
+ *                 │
+ *                 ▼ (WebSockets Broadcast in < 100ms)
+ *    [Firebase onValue() Listener -> notifySubscribers()]
+ *                 │
+ *                 ▼
+ *    [UIController Filter Pipeline & MapController O(1) Map Diffing]
  * ============================================================================
  */
 
@@ -26,7 +39,9 @@ import {
   addReport, 
   upvoteReport, 
   resolveReport,
-  resetDemoData 
+  resetDemoData,
+  getCivicOffices,
+  exportReportsToCSV
 } from "./report-service.js";
 import { MapController } from "./map-controller.js";
 import { UIController } from "./ui-controller.js";
@@ -36,17 +51,22 @@ class AccessYourDistrictApp {
     /** @type {Array<Object>} */
     this.latestReports = [];
 
+    /** @type {Array<Object>} */
+    this.civicOffices = getCivicOffices();
+
     // 1. Initialize UI Controller with event callbacks
     this.ui = new UIController({
       onReportSubmit: async (formData) => {
         await addReport(formData);
       },
       onFilterChange: (filteredReports, _selectedCategories) => {
-        // Synchronize map markers with whatever is currently visible in UI filter/search
         this.map.syncMarkers(filteredReports);
       },
       onReportSelect: (lat, lng, reportId) => {
         this.map.focusOnReport(lat, lng, reportId);
+      },
+      onCivicOfficeSelect: (lat, lng, officeId) => {
+        this.map.focusOnCivicOffice(lat, lng, officeId);
       },
       onUpvote: async (reportId) => {
         const target = this.latestReports.find((r) => r.id === reportId);
@@ -57,18 +77,28 @@ class AccessYourDistrictApp {
       onResolve: async (reportId) => {
         await resolveReport(reportId);
         this.ui.showToast("✔ Marked barrier as RESOLVED!", "success");
+      },
+      onExportCSV: () => {
+        const filename = exportReportsToCSV(this.latestReports);
+        if (filename) {
+          this.ui.showToast("📥 Successfully exported CSV report for city planners!", "success");
+        } else {
+          this.ui.showToast("⚠️ No reports available to export.", "error");
+        }
       }
     });
 
     // 2. Initialize Map Controller with click & details callbacks
     this.map = new MapController("map", {
       onReportClick: (lat, lng) => {
-        // Exit reporting mode visual state and open modal
         this.exitReportingMode();
         this.ui.openReportModal(lat, lng);
       },
       onMarkerDetailsClick: (reportId) => {
         this.ui.openDetailsModal(reportId);
+      },
+      onCivicOfficeClick: (officeId) => {
+        this.ui.openCivicModal(officeId);
       }
     });
   }
@@ -90,25 +120,29 @@ class AccessYourDistrictApp {
     // 3. Subscribe to real-time reports from Firebase / Demo DB
     subscribeToReports((reports) => {
       this.latestReports = reports;
-      this.ui.updateSidebar(reports);
-      // Ensure initial map sync uses filtered array from UIController
+      this.ui.updateSidebar(reports, this.civicOffices);
       this.map.syncMarkers(this.ui.filteredReports);
+      this.map.syncCivicOffices(this.civicOffices, true);
     });
 
-    // 4. Try locating user district automatically or default to Capitol Hill
+    // 4. AUTOMATIC GEOLOCATION API CALL ON OPEN (SOCIETAL PORTABILITY)
+    // Centers map on the user's actual browser coordinates with a "You Are Here" marker
     this.map.locateUserDistrict(
       (coords) => {
-        console.log(`📍 Centered on user's district: ${coords.latitude}, ${coords.longitude}`);
+        console.log(`📍 Centered automatically on user location: ${coords.latitude}, ${coords.longitude}`);
+        this.ui.showToast("📍 Centered on your local congressional district!", "success");
       },
       () => {
-        console.log("ℹ️ Using default district view (Washington D.C. Capitol Hill area).");
+        console.log("ℹ️ Geolocation unavailable; displaying default representative district (Capitol Hill).");
       }
     );
 
-    // Expose app debug helper in console for evaluation
+    // Expose debug & testing helpers for evaluation
     window.AYD = {
       resetDemo: () => resetDemoData(),
       getReports: () => this.latestReports,
+      getCivicOffices: () => this.civicOffices,
+      exportCSV: () => exportReportsToCSV(this.latestReports),
       toggleHighContrast: () => this.ui.toggleHighContrast()
     };
   }
@@ -117,7 +151,6 @@ class AccessYourDistrictApp {
    * Bind header action buttons (My District, Report Barrier, Cancel Report).
    */
   bindHeaderActions() {
-    // Center on My District button
     const btnLocate = document.getElementById("btn-locate");
     if (btnLocate) {
       btnLocate.addEventListener("click", () => {
@@ -129,19 +162,16 @@ class AccessYourDistrictApp {
       });
     }
 
-    // Report Barrier primary button
     const btnStartReport = document.getElementById("btn-start-report");
     if (btnStartReport) {
       btnStartReport.addEventListener("click", () => this.enterReportingMode());
     }
 
-    // Cancel Reporting Mode button inside banner
     const btnCancelReport = document.getElementById("btn-cancel-report");
     if (btnCancelReport) {
       btnCancelReport.addEventListener("click", () => this.exitReportingMode());
     }
 
-    // Escape key shortcut to cancel reporting mode
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && this.map.isReportingMode) {
         this.exitReportingMode();

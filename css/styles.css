@@ -9,10 +9,12 @@
       - Dynamic root typography scaler ([data-font-size="normal"|"large"|"xl"]) 
         using rem units so all text, buttons, and badges scale proportionally.
       - Strong 3px visible focus rings for keyboard navigation.
-      - Minimum 48px touch targets for WCAG 2.2 AA/AAA compliance.
+      - Minimum 44-48px touch targets for WCAG 2.2 AA/AAA compliance.
    2. Responsive Dashboard Layout:
       - Professional multi-column CSS Flexbox & Grid on Desktop/Tablet.
       - Seamless mobile view switcher for small viewports (<768px).
+   3. Societal Use & Civic Resource Layer:
+      - High-contrast government directory cards and ADA verification badges.
 ============================================================================= */
 
 /* =============================================================================
@@ -55,11 +57,11 @@
   
   /* Dimensions */
   --header-height: 72px;
-  --sidebar-width: 410px;
+  --sidebar-width: 420px;
 }
 
 /* =============================================================================
-   THEME OVERRIDE - ULTRA HIGH-CONTRAST MODE (Inspired by accessibility winners)
+   THEME OVERRIDE - ULTRA HIGH-CONTRAST MODE
    ============================================================================= */
 html[data-theme="high-contrast"] {
   --primary-color: #ffff00;
@@ -276,7 +278,6 @@ textarea:focus-visible,
   font-weight: 700;
 }
 
-/* High-Contrast Mode toggle active styling */
 html[data-theme="high-contrast"] .contrast-toggle {
   background: #ffff00;
   color: #000000;
@@ -286,7 +287,7 @@ html[data-theme="high-contrast"] .contrast-toggle {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 /* Database Status Badge */
@@ -330,8 +331,8 @@ html[data-theme="high-contrast"] .contrast-toggle {
   justify-content: center;
   gap: 0.5rem;
   min-height: 44px;
-  padding: 0.6rem 1.25rem;
-  font-size: 0.9rem;
+  padding: 0.6rem 1.15rem;
+  font-size: 0.88rem;
   font-weight: 700;
   border-radius: var(--radius-sm);
   border: 2px solid transparent;
@@ -468,7 +469,7 @@ html[data-theme="high-contrast"] .reporting-banner {
 }
 
 /* =============================================================================
-   SIDEBAR & MULTI-SELECT FILTERS
+   SIDEBAR & TAB SWITCHER (CITIZEN REPORTS vs CIVIC DIRECTORY)
    ============================================================================= */
 .sidebar {
   width: var(--sidebar-width);
@@ -481,9 +482,77 @@ html[data-theme="high-contrast"] .reporting-banner {
   z-index: 500;
 }
 
-/* Section 1: Overview Statistics Card */
+.sidebar-tab-bar {
+  display: flex;
+  background-color: var(--bg-main);
+  border-bottom: 2px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.sidebar-tab-btn {
+  flex: 1;
+  min-height: 48px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-tab-btn:hover {
+  color: var(--text-main);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.sidebar-tab-btn.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  background-color: var(--bg-card);
+}
+
+html[data-theme="high-contrast"] .sidebar-tab-btn.active {
+  color: #ffff00;
+  border-bottom-color: #ffff00;
+  background-color: #111111;
+}
+
+.tab-count-pill {
+  background-color: var(--border-color);
+  color: var(--text-main);
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.sidebar-tab-btn.active .tab-count-pill {
+  background-color: var(--primary-color);
+  color: var(--bg-card);
+}
+
+html[data-theme="high-contrast"] .sidebar-tab-btn.active .tab-count-pill {
+  background-color: #ffff00;
+  color: #000000;
+}
+
+.sidebar-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =============================================================================
+   STATISTICS OVERVIEW CARD
+   ============================================================================= */
 .stats-card {
-  padding: 1.25rem;
+  padding: 1.15rem 1.25rem;
   border-bottom: 2px solid var(--border-color);
   background: var(--bg-main);
 }
@@ -557,7 +626,9 @@ html[data-theme="high-contrast"] .reporting-banner {
   margin-top: 0.15rem;
 }
 
-/* Section 2: Filter & Search Section */
+/* =============================================================================
+   FILTER & SEARCH SECTION
+   ============================================================================= */
 .filter-section {
   padding: 1.15rem 1.25rem;
   border-bottom: 2px solid var(--border-color);
@@ -590,7 +661,6 @@ html[data-theme="high-contrast"] .reporting-banner {
   font-size: 0.8rem;
 }
 
-/* Search Box */
 .search-wrapper {
   margin-bottom: 0.85rem;
 }
@@ -693,7 +763,9 @@ html[data-theme="high-contrast"] .filter-chip.active {
   background-color: rgba(255, 255, 255, 0.25);
 }
 
-/* Section 3: Reports List Section */
+/* =============================================================================
+   REPORTS & CIVIC DIRECTORY FEED
+   ============================================================================= */
 .reports-list-section {
   flex: 1;
   display: flex;
@@ -710,6 +782,11 @@ html[data-theme="high-contrast"] .filter-chip.active {
   border-radius: 9999px;
 }
 
+.filtered-badge.civic-badge {
+  color: #047857;
+  background-color: #ecfdf5;
+}
+
 .reports-list {
   display: flex;
   flex-direction: column;
@@ -717,7 +794,7 @@ html[data-theme="high-contrast"] .filter-chip.active {
   margin-top: 0.5rem;
 }
 
-/* Individual Report Card */
+/* Individual Report / Civic Card */
 .report-card {
   border: 2px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -734,6 +811,10 @@ html[data-theme="high-contrast"] .filter-chip.active {
   border-color: var(--primary-color);
 }
 
+.report-card.civic-office-card:hover, .report-card.civic-office-card:focus {
+  border-color: #047857;
+}
+
 .report-card-header {
   display: flex;
   align-items: center;
@@ -746,6 +827,10 @@ html[data-theme="high-contrast"] .filter-chip.active {
   font-size: 0.8rem;
   font-weight: 800;
   color: var(--primary-color);
+}
+
+.civic-card-category {
+  color: #047857;
 }
 
 .report-card-title {
@@ -793,12 +878,57 @@ html[data-theme="high-contrast"] .filter-chip.active {
 }
 
 /* =============================================================================
-   CONGRESSIONAL DISTRICT FOOTER & BANNER (JUDGING STANDARD: CIVIC ADVOCACY)
+   CIVIC DIRECTORY HEADER CARD
+   ============================================================================= */
+.civic-header-card {
+  padding: 1.15rem 1.25rem;
+  background: var(--bg-main);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.civic-badge-pill {
+  display: inline-block;
+  background-color: #ecfdf5;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid #047857;
+  margin-bottom: 0.45rem;
+}
+
+html[data-theme="high-contrast"] .civic-badge-pill {
+  background-color: #003311;
+  color: #00ff66;
+  border-color: #00ff66;
+}
+
+.civic-title {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--text-main);
+  margin-bottom: 0.35rem;
+}
+
+.civic-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* =============================================================================
+   CONGRESSIONAL DISTRICT FOOTER & BANNER
    ============================================================================= */
 .sidebar-footer {
   padding: 1.15rem 1.25rem;
   background: var(--bg-main);
   border-top: 2px solid var(--border-color);
+}
+
+.export-footer-btn {
+  font-weight: 800;
+  border: 2px solid var(--border-color);
 }
 
 .congress-district-banner {
@@ -928,6 +1058,7 @@ html[data-theme="high-contrast"] .external-link:hover {
   border: 1px solid rgba(0,0,0,0.2);
 }
 
+.legend-dot.civic { background-color: #047857; }
 .legend-dot.high { background-color: var(--severity-high); }
 .legend-dot.medium { background-color: var(--severity-medium); }
 .legend-dot.low { background-color: var(--severity-low); }
@@ -972,7 +1103,7 @@ html[data-theme="high-contrast"] .external-link:hover {
 }
 
 .popup-card {
-  min-width: 220px;
+  min-width: 230px;
   font-family: inherit;
 }
 
@@ -997,7 +1128,7 @@ html[data-theme="high-contrast"] .external-link:hover {
 }
 
 /* =============================================================================
-   MODALS (REPORT BARRIER & DETAILS)
+   MODALS (REPORT BARRIER, DETAILS & CIVIC DIRECTORY PROFILE)
    ============================================================================= */
 .modal {
   border: none;
@@ -1211,6 +1342,18 @@ html[data-theme="high-contrast"] .external-link:hover {
   border-color: var(--severity-low);
 }
 
+.badge.civic-pill-badge {
+  background-color: #ecfdf5;
+  color: #047857;
+  border-color: #047857;
+}
+
+html[data-theme="high-contrast"] .badge.civic-pill-badge {
+  background-color: #003311;
+  color: #00ff66;
+  border-color: #00ff66;
+}
+
 .details-body {
   padding: 1.35rem;
 }
@@ -1223,11 +1366,40 @@ html[data-theme="high-contrast"] .external-link:hover {
   line-height: 1.25;
 }
 
+.civic-address-line {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
 .details-description {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   line-height: 1.6;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.15rem;
+}
+
+.ada-features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.ada-feature-pill {
+  background-color: #ecfdf5;
+  color: #047857;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1px solid #047857;
+}
+
+html[data-theme="high-contrast"] .ada-feature-pill {
+  background-color: #003311;
+  color: #00ff66;
+  border-color: #00ff66;
 }
 
 .details-meta {
@@ -1323,7 +1495,7 @@ html[data-theme="high-contrast"] .toast {
 /* Tablet & Moderate Screens (< 1024px) */
 @media (max-width: 1024px) {
   :root {
-    --sidebar-width: 360px;
+    --sidebar-width: 370px;
   }
   .app-subtitle {
     display: none;
@@ -1356,7 +1528,7 @@ html[data-theme="high-contrast"] .toast {
   }
 
   .status-badge {
-    display: none; /* Simplify mobile header */
+    display: none;
   }
 
   /* Show Mobile View Switcher */
@@ -1396,7 +1568,6 @@ html[data-theme="high-contrast"] .toast {
     background-color: #222200;
   }
 
-  /* Main Viewport Adaptation for Mobile Switcher */
   .app-main {
     height: calc(100vh - 128px);
     flex-direction: column;
@@ -1413,7 +1584,6 @@ html[data-theme="high-contrast"] .toast {
     height: 100%;
   }
 
-  /* By default on mobile, show Map and hide Sidebar unless switched */
   .app-main[data-mobile-view="map"] .sidebar {
     display: none !important;
   }

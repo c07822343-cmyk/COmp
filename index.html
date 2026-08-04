@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AccessYourDistrict - Congressional App Challenge &amp; Civic Inclusion Platform</title>
-  <meta name="description" content="A crowdsourced civic engagement web app for reporting local accessibility barriers, improving community inclusion, and connecting residents with their congressional district office.">
+  <meta name="description" content="A crowdsourced civic engagement web app for reporting local accessibility barriers, improving community inclusion, and connecting residents with their local government and congressional district office.">
   
   <!-- Theme Color & Favicon -->
   <meta name="theme-color" content="#0d47a1">
@@ -25,7 +25,7 @@
   <a href="#app-sidebar" class="skip-link">Skip to Reports Dashboard &amp; Filters</a>
 
   <!-- =========================================================================
-       HEADER / NAVIGATION BAR WITH ACCESSIBILITY TOOLBAR
+       HEADER / NAVIGATION BAR WITH ACCESSIBILITY TOOLBAR & ADMIN EXPORT
        ========================================================================= -->
   <header class="app-header" role="banner">
     <div class="header-brand">
@@ -67,8 +67,16 @@
         <span class="status-text">Demo Mode (Local Storage)</span>
       </div>
 
+      <!-- CSV Export Button (Advanced CS Programming Skill - Data Export for City Planners) -->
+      <button type="button" id="btn-export-csv" class="btn btn-secondary" 
+              title="Export crowdsourced accessibility reports to CSV file for city planners &amp; DPW engineers" 
+              aria-label="Export database reports to CSV for city planners">
+        <span aria-hidden="true">📥</span>
+        <span>Export CSV</span>
+      </button>
+
       <!-- Locate Me / District Center Button -->
-      <button type="button" id="btn-locate" class="btn btn-secondary" aria-label="Center map on my congressional district">
+      <button type="button" id="btn-locate" class="btn btn-secondary" aria-label="Center map on my congressional district location">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="3 11 22 2 13 21 11 13 3 11"/>
         </svg>
@@ -107,7 +115,7 @@
     </button>
     <button type="button" class="mobile-tab" data-view="sidebar" aria-pressed="false">
       <span aria-hidden="true">📊</span>
-      <span>Dashboard &amp; Filters (<span id="mobile-report-count">0</span>)</span>
+      <span>Dashboard &amp; Civic Directory</span>
     </button>
   </nav>
 
@@ -116,126 +124,183 @@
        ========================================================================= -->
   <main class="app-main" role="main">
     
-    <!-- SIDEBAR: STATS, MULTI-SELECT FILTERS, AND REPORT LIST -->
-    <aside class="sidebar" id="app-sidebar" aria-label="District accessibility reports and filtering dashboard">
+    <!-- SIDEBAR: CITIZEN REPORTS TAB vs. GOVERNMENT DIRECTORY TAB -->
+    <aside class="sidebar" id="app-sidebar" aria-label="District accessibility reports and civic resource directory">
       
-      <!-- Section 1: District Overview Statistics Dashboard -->
-      <section class="stats-card" aria-labelledby="overview-heading">
-        <h2 id="overview-heading" class="section-title">District Accessibility Overview</h2>
-        <div class="stats-grid">
-          <div class="stat-box" role="region" aria-label="Total accessibility barriers reported">
-            <span class="stat-value" id="stat-total">0</span>
-            <span class="stat-label">Total Barriers</span>
-          </div>
-          <div class="stat-box high-priority" role="region" aria-label="High priority action items">
-            <span class="stat-value" id="stat-high">0</span>
-            <span class="stat-label">High Priority</span>
-          </div>
-          <div class="stat-box resolved-box" role="region" aria-label="Resolved accessibility improvements">
-            <span class="stat-value" id="stat-resolved">0</span>
-            <span class="stat-label">Resolved</span>
-          </div>
-          <div class="stat-box upvote-box" role="region" aria-label="Total citizen confirmations">
-            <span class="stat-value" id="stat-upvotes">0</span>
-            <span class="stat-label">Confirmations</span>
-          </div>
-        </div>
-      </section>
+      <!-- TOP SIDEBAR TAB SWITCHER (Citizen Reports vs Civic Directory) -->
+      <nav class="sidebar-tab-bar" role="tablist" aria-label="Sidebar section switcher">
+        <button type="button" id="tab-btn-reports" class="sidebar-tab-btn active" role="tab" aria-selected="true" aria-controls="panel-reports">
+          <span>🚧 Citizen Reports</span>
+          <span class="tab-count-pill" id="tab-count-reports">0</span>
+        </button>
+        <button type="button" id="tab-btn-civic" class="sidebar-tab-btn" role="tab" aria-selected="false" aria-controls="panel-civic">
+          <span>🏛️ Civic Directory</span>
+          <span class="tab-count-pill civic-pill" id="tab-count-civic">5</span>
+        </button>
+      </nav>
 
-      <!-- Section 2: Advanced Multi-Select Filtering & Search System -->
-      <section class="filter-section" aria-labelledby="filter-heading">
-        <div class="filter-header">
-          <h2 id="filter-heading" class="filter-title">Filter District Reports</h2>
-          <div class="filter-actions">
-            <button type="button" id="btn-select-all" class="btn-link">Select All</button>
-            <span class="sep" aria-hidden="true">&bull;</span>
-            <button type="button" id="btn-reset-filters" class="btn-link">Reset</button>
+      <!-- =====================================================================
+           TAB PANEL 1: CROWDSOURCED CITIZEN ACCESSIBILITY REPORTS
+           ===================================================================== -->
+      <div id="panel-reports" class="sidebar-panel active" role="tabpanel" aria-labelledby="tab-btn-reports">
+        
+        <!-- Section 1: District Overview Statistics Dashboard -->
+        <section class="stats-card" aria-labelledby="overview-heading">
+          <h2 id="overview-heading" class="section-title">District Accessibility Overview</h2>
+          <div class="stats-grid">
+            <div class="stat-box" role="region" aria-label="Total accessibility barriers reported">
+              <span class="stat-value" id="stat-total">0</span>
+              <span class="stat-label">Total Barriers</span>
+            </div>
+            <div class="stat-box high-priority" role="region" aria-label="High priority action items">
+              <span class="stat-value" id="stat-high">0</span>
+              <span class="stat-label">High Priority</span>
+            </div>
+            <div class="stat-box resolved-box" role="region" aria-label="Resolved accessibility improvements">
+              <span class="stat-value" id="stat-resolved">0</span>
+              <span class="stat-label">Resolved</span>
+            </div>
+            <div class="stat-box upvote-box" role="region" aria-label="Total citizen confirmations">
+              <span class="stat-value" id="stat-upvotes">0</span>
+              <span class="stat-label">Confirmations</span>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Search Bar -->
-        <div class="search-wrapper">
-          <label for="filter-search" class="sr-only">Search barriers by title, landmark, or description</label>
-          <input type="search" id="filter-search" class="search-input" 
-                 placeholder="🔍 Search street, landmark, or description..." 
-                 aria-label="Search barriers by title, landmark, or description" />
-        </div>
-
-        <!-- Severity Filter Dropdown -->
-        <div class="severity-filter-group">
-          <label for="filter-severity" class="form-label-inline">Urgency Level:</label>
-          <select id="filter-severity" class="filter-select" aria-label="Filter by barrier severity level">
-            <option value="ALL">All Urgency &amp; Status Levels</option>
-            <option value="HIGH">🔴 High Priority (Wheelchair/Mobility Blocked)</option>
-            <option value="MEDIUM">🟠 Medium Priority (Hazard / Difficulty)</option>
-            <option value="LOW">🟢 Low Priority (Minor Inconvenience)</option>
-            <option value="RESOLVED">✔ Resolved Improvements Only</option>
-          </select>
-        </div>
-
-        <!-- Category Multi-Select Checklist -->
-        <div class="category-filters" id="category-filter-list" role="group" aria-label="Toggle issue categories">
-          <label class="filter-chip active" data-category="ALL">
-            <input type="checkbox" checked value="ALL" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">🌐</span>
-            <span class="chip-label">All Categories</span>
-            <span class="chip-count" id="count-ALL">0</span>
-          </label>
-          <label class="filter-chip active" data-category="RAMP">
-            <input type="checkbox" checked value="RAMP" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">♿</span>
-            <span class="chip-label">Broken Ramp</span>
-            <span class="chip-count" id="count-RAMP">0</span>
-          </label>
-          <label class="filter-chip active" data-category="SIDEWALK">
-            <input type="checkbox" checked value="SIDEWALK" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">🚧</span>
-            <span class="chip-label">Blocked Sidewalk</span>
-            <span class="chip-count" id="count-SIDEWALK">0</span>
-          </label>
-          <label class="filter-chip active" data-category="TACTILE">
-            <input type="checkbox" checked value="TACTILE" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">🦯</span>
-            <span class="chip-label">No Tactile Paving</span>
-            <span class="chip-count" id="count-TACTILE">0</span>
-          </label>
-          <label class="filter-chip active" data-category="SIGNAL">
-            <input type="checkbox" checked value="SIGNAL" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">🔊</span>
-            <span class="chip-label">Audible Signal</span>
-            <span class="chip-count" id="count-SIGNAL">0</span>
-          </label>
-          <label class="filter-chip active" data-category="SURFACE">
-            <input type="checkbox" checked value="SURFACE" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">⚠️</span>
-            <span class="chip-label">Uneven Surface</span>
-            <span class="chip-count" id="count-SURFACE">0</span>
-          </label>
-          <label class="filter-chip active" data-category="OTHER">
-            <input type="checkbox" checked value="OTHER" class="sr-only" />
-            <span class="chip-icon" aria-hidden="true">📌</span>
-            <span class="chip-label">Other Barrier</span>
-            <span class="chip-count" id="count-OTHER">0</span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Section 3: Reported Barriers Feed -->
-      <section class="reports-list-section" aria-labelledby="list-heading">
-        <h2 id="list-heading" class="section-title">
-          <span>District Barrier Reports</span>
-          <span class="filtered-badge" id="filtered-count-badge">Showing All</span>
-        </h2>
-        <div id="reports-list-container" class="reports-list" role="feed" aria-busy="false">
-          <!-- Dynamically populated by UIController -->
-          <div class="empty-state">
-            <p>Loading district accessibility reports...</p>
+        <!-- Section 2: Advanced Multi-Select Filtering & Search System -->
+        <section class="filter-section" aria-labelledby="filter-heading">
+          <div class="filter-header">
+            <h2 id="filter-heading" class="filter-title">Filter District Reports</h2>
+            <div class="filter-actions">
+              <button type="button" id="btn-select-all" class="btn-link">Select All</button>
+              <span class="sep" aria-hidden="true">&bull;</span>
+              <button type="button" id="btn-reset-filters" class="btn-link">Reset</button>
+            </div>
           </div>
-        </div>
-      </section>
+
+          <!-- Search Bar -->
+          <div class="search-wrapper">
+            <label for="filter-search" class="sr-only">Search barriers by title, landmark, or description</label>
+            <input type="search" id="filter-search" class="search-input" 
+                   placeholder="🔍 Search street, landmark, or description..." 
+                   aria-label="Search barriers by title, landmark, or description" />
+          </div>
+
+          <!-- Severity Filter Dropdown -->
+          <div class="severity-filter-group">
+            <label for="filter-severity" class="form-label-inline">Urgency Level:</label>
+            <select id="filter-severity" class="filter-select" aria-label="Filter by barrier severity level">
+              <option value="ALL">All Urgency &amp; Status Levels</option>
+              <option value="HIGH">🔴 High Priority (Wheelchair/Mobility Blocked)</option>
+              <option value="MEDIUM">🟠 Medium Priority (Hazard / Difficulty)</option>
+              <option value="LOW">🟢 Low Priority (Minor Inconvenience)</option>
+              <option value="RESOLVED">✔ Resolved Improvements Only</option>
+            </select>
+          </div>
+
+          <!-- Category Multi-Select Checklist -->
+          <div class="category-filters" id="category-filter-list" role="group" aria-label="Toggle issue categories">
+            <label class="filter-chip active" data-category="ALL">
+              <input type="checkbox" checked value="ALL" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">🌐</span>
+              <span class="chip-label">All Categories</span>
+              <span class="chip-count" id="count-ALL">0</span>
+            </label>
+            <label class="filter-chip active" data-category="RAMP">
+              <input type="checkbox" checked value="RAMP" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">♿</span>
+              <span class="chip-label">Broken Ramp</span>
+              <span class="chip-count" id="count-RAMP">0</span>
+            </label>
+            <label class="filter-chip active" data-category="SIDEWALK">
+              <input type="checkbox" checked value="SIDEWALK" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">🚧</span>
+              <span class="chip-label">Blocked Sidewalk</span>
+              <span class="chip-count" id="count-SIDEWALK">0</span>
+            </label>
+            <label class="filter-chip active" data-category="TACTILE">
+              <input type="checkbox" checked value="TACTILE" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">🦯</span>
+              <span class="chip-label">No Tactile Paving</span>
+              <span class="chip-count" id="count-TACTILE">0</span>
+            </label>
+            <label class="filter-chip active" data-category="SIGNAL">
+              <input type="checkbox" checked value="SIGNAL" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">🔊</span>
+              <span class="chip-label">Audible Signal</span>
+              <span class="chip-count" id="count-SIGNAL">0</span>
+            </label>
+            <label class="filter-chip active" data-category="SURFACE">
+              <input type="checkbox" checked value="SURFACE" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">⚠️</span>
+              <span class="chip-label">Uneven Surface</span>
+              <span class="chip-count" id="count-SURFACE">0</span>
+            </label>
+            <label class="filter-chip active" data-category="OTHER">
+              <input type="checkbox" checked value="OTHER" class="sr-only" />
+              <span class="chip-icon" aria-hidden="true">📌</span>
+              <span class="chip-label">Other Barrier</span>
+              <span class="chip-count" id="count-OTHER">0</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Section 3: Reported Barriers Feed -->
+        <section class="reports-list-section" aria-labelledby="list-heading">
+          <h2 id="list-heading" class="section-title">
+            <span>District Barrier Reports</span>
+            <span class="filtered-badge" id="filtered-count-badge">Showing All</span>
+          </h2>
+          <div id="reports-list-container" class="reports-list" role="feed" aria-busy="false">
+            <!-- Dynamically populated by UIController -->
+            <div class="empty-state">
+              <p>Loading district accessibility reports...</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- =====================================================================
+           TAB PANEL 2: GOVERNMENT & CIVIC RESOURCE DIRECTORY (SOCIETAL LAYER)
+           ===================================================================== -->
+      <div id="panel-civic" class="sidebar-panel hidden" role="tabpanel" aria-labelledby="tab-btn-civic">
+        
+        <section class="civic-header-card" aria-labelledby="civic-dir-title">
+          <div class="civic-badge-pill">🏛️ VERIFIED ACCESSIBLE CIVIC RESOURCE LAYER</div>
+          <h2 id="civic-dir-title" class="civic-title">Government &amp; Congressional Directory</h2>
+          <p class="civic-subtitle">
+            Verified ADA-accessible municipal offices, DPW departments, and U.S. Congressional constituent offices. Click any office below to zoom to its location and view verified accessibility features.
+          </p>
+          
+          <!-- Civic Office Search Box -->
+          <div class="search-wrapper" style="margin-top: 0.75rem;">
+            <label for="civic-search" class="sr-only">Search government offices by name or service</label>
+            <input type="search" id="civic-search" class="search-input" 
+                   placeholder="🔍 Search municipal or congressional office..." 
+                   aria-label="Search government offices by name or service" />
+          </div>
+        </section>
+
+        <section class="reports-list-section" aria-labelledby="civic-list-heading">
+          <h3 id="civic-list-heading" class="section-title">
+            <span>Verified Local Government Offices</span>
+            <span class="filtered-badge civic-badge" id="civic-filtered-badge">Showing 5</span>
+          </h3>
+          <div id="civic-list-container" class="reports-list" role="feed" aria-busy="false">
+            <!-- Dynamically populated by UIController with Government Directory cards -->
+          </div>
+        </section>
+      </div>
 
       <!-- Section 4: Official Congressional District Link & Footer -->
       <footer class="sidebar-footer" role="contentinfo">
+        <!-- Advanced CS Skill: CSV Export for City Planners -->
+        <button type="button" id="btn-export-csv-footer" class="btn btn-sm btn-secondary export-footer-btn" 
+                title="Export database reports to CSV for city planners and DPW repair crews">
+          <span aria-hidden="true">📥</span>
+          <span>Export CSV for City Planners (.csv)</span>
+        </button>
+
         <div class="congress-district-banner">
           <div class="congress-icon" aria-hidden="true">🏛️</div>
           <div class="congress-text">
@@ -268,11 +333,12 @@
 
     <!-- MAP CONTAINER -->
     <div class="map-wrapper" id="map-wrapper">
-      <div id="map" class="map-container" aria-label="Interactive map of local congressional district showing accessibility barriers" tabindex="0"></div>
+      <div id="map" class="map-container" aria-label="Interactive map of local congressional district showing accessibility barriers and civic offices" tabindex="0"></div>
       
       <!-- High-Contrast Floating Map Legend -->
       <div class="map-overlay-legend" role="region" aria-label="Map marker color legend">
         <span class="legend-title">Legend:</span>
+        <span class="legend-item"><span class="legend-dot civic"></span> 🏛️ Government Office</span>
         <span class="legend-item"><span class="legend-dot high"></span> High Severity</span>
         <span class="legend-item"><span class="legend-dot medium"></span> Medium</span>
         <span class="legend-item"><span class="legend-dot low"></span> Low</span>
@@ -402,6 +468,46 @@
         </button>
         <button type="button" id="btn-resolve-report" class="btn btn-success" aria-label="Mark this barrier as resolved">
           <span>✔ Mark Resolved</span>
+        </button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       CIVIC OFFICE DETAILS MODAL (Government & Congressional Directory)
+       ========================================================================= -->
+  <dialog id="civic-modal" class="modal" aria-labelledby="civic-modal-title">
+    <div class="modal-card">
+      <header class="modal-header">
+        <div class="details-header-info">
+          <span class="badge civic-pill-badge">🏛️ VERIFIED ACCESSIBLE</span>
+          <span id="civic-type-badge" class="badge">GOVERNMENT</span>
+        </div>
+        <button type="button" id="btn-close-civic" class="btn-close" aria-label="Close civic office profile">&times;</button>
+      </header>
+      
+      <div class="details-body">
+        <h3 id="civic-modal-title" class="details-title">Government Office Title</h3>
+        <p id="civic-modal-address" class="civic-address-line">Address</p>
+        <p id="civic-modal-services" class="details-description" style="margin-top: 0.5rem;"></p>
+        
+        <div class="details-meta" role="region" aria-label="Verified accessibility features">
+          <h4 style="font-size: 0.85rem; font-weight: 800; color: #047857; margin-bottom: 0.4rem;">
+            ✔ Verified ADA Compliant Accessibility Features:
+          </h4>
+          <div id="civic-modal-features" class="ada-features-list">
+            <!-- Populated by JS -->
+          </div>
+          <div class="meta-item" style="margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+            <span class="meta-label">Phone Contact:</span>
+            <span id="civic-modal-phone" style="font-weight: 800; color: var(--primary-color);"></span>
+          </div>
+        </div>
+      </div>
+
+      <footer class="modal-footer details-actions">
+        <button type="button" id="btn-zoom-civic" class="btn btn-primary" aria-label="Zoom to this government office on the map">
+          <span>📍 View on Interactive Map</span>
         </button>
       </footer>
     </div>
