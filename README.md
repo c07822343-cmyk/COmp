@@ -5,6 +5,7 @@
 [![Built with Leaflet.js](https://img.shields.io/badge/Map-Leaflet.js%20%2B%20OpenStreetMap-4b5563?logo=openstreetmap)](https://leafletjs.com/)
 [![Firebase Realtime Database](https://img.shields.io/badge/Database-Firebase%20Realtime%20DB-ffca28?logo=firebase)](https://firebase.google.com/)
 [![WCAG AAA Accessibility](https://img.shields.io/badge/Accessibility-WCAG%20AAA%20Compliant-00ffff?logo=w3c)](https://www.w3.org/WAI/standards-guidelines/wcag/)
+[![Cybersecurity Hardened](https://img.shields.io/badge/Security-XSS%20%26%20Spam%20Protected-red?logo=securityscorecard)](./SECURITY.md)
 [![Congressional Seal Branding](https://img.shields.io/badge/Civic%20Portal-Official%20House.gov%20Link-0d47a1?logo=bank-of-america)](https://www.house.gov)
 
 ---
@@ -19,23 +20,28 @@
    * **Official U.S. House Contact Link:** Features a prominent **`Contact Representative`** button linking directly to your Member's official **[House.gov](https://moskowitz.house.gov/contact)** constituent contact website.
    * **Congressional Seal Aesthetic:** Styled with official Congressional navy blue (`#0a2540`), American gold borders (`#d4af37`), and star motifs (`★★★`), lending the dignity and authority of a federal constituent program.
 
-2. **Accessibility First (WCAG AAA & ADA Compliant Design):**
+2. **Cybersecurity Hardened (3-Layer Defensive Architecture):**
+   * **Client-Side XSS Sanitization & Output Encoding (`js/security-utils.js`):** Strips dangerous tags (`<script>`, `<iframe>`, `javascript:` URIs) and encodes HTML entities (`escapeHTML`, `sanitizeText`) to neutralize script injection.
+   * **Geographic Schema & Anti-Spam Guard:** Verifies finite WGS84 coordinate ranges (`-90 <= lat <= 90`, `-180 <= lng <= 180`), enforces strict category/severity enum matching, and applies a 15-second cooldown between report submissions (`checkRateLimit`).
+   * **Server-Side Firebase Security Rules (`firebase-security-rules.json`):** Enforces `.validate` regex patterns and coordinate bounds directly in Google's cloud console to reject unauthenticated spam writes or malformed JSON payloads.
+
+3. **Accessibility First (WCAG AAA & ADA Compliant Design):**
    * **Ultra High-Contrast Dark Mode (`🌗 High Contrast`):** Inspired by accessibility winners like *SoniSight*, users can switch between a clean high-contrast civic theme and an Ultra High-Contrast Dark Theme (`#000000` background, `#ffff00` headings, and `#00ffff` links) exceeding WCAG AAA contrast ratios (> 7:1).
    * **Dynamic Text Scaler (`A`, `A+`, `A++`):** Built-in accessibility toolbar allows visually impaired visitors to scale root text sizing by up to **135%** on the fly.
    * **WCAG 2.2 Touch Targets & Keyboard Focus:** Minimum 44–48px touch targets for all buttons and crisp 3px visible focus outlines for screen readers and keyboard navigation.
 
-3. **Societal Use & Civic Resource Directory (Winning Legacy):**
+4. **Societal Use & Civic Resource Directory (Winning Legacy):**
    * **Searchable Government Directory (`🏛️ Civic Directory` Tab):** Drawing inspiration from past winners like *CivicLink* and *EnAct*, residents can search verified ADA-accessible municipal, DPW, and U.S. Congressional constituent offices.
    * **Verified Accessible Badges:** Each office displays an official green badge (`🏛️ VERIFIED ACCESSIBLE`) and a breakdown of verified ADA features (`✔ ADA Compliant Ramp • ✔ Power Doors • ✔ Accessible Elevators • ✔ ASL Services`).
 
-4. **Automated Geolocation & Portability:**
+5. **Automated Geolocation & Portability:**
    * **Browser Geolocation API on Launch:** When the app opens, it automatically calls `navigator.geolocation.getCurrentPosition()` to center the map on the user's current position with a distinct blue `"📍 You Are Here"` marker.
    * **Responsive Dashboard & Mobile View Switcher (< 768px):** A dedicated mobile tab bar (`🗺️ Map View` vs `📊 Dashboard & Civic Directory`) allows mobile visitors to toggle between a 100% full-screen map and a 100% full-screen dashboard.
 
-5. **Advanced CS Skill: CSV Export Engine for City Planners:**
+6. **Advanced CS Skill: CSV Export Engine for City Planners:**
    * Clicking **`📥 Export CSV`** in the header or sidebar footer converts JSON database records into an RFC 4180-compliant `.csv` file (`exportReportsToCSV`). City planners and DPW engineers can import the data directly into municipal GIS systems to enact real-world repairs.
 
-6. **DevOps Engineering & Instant Loading (Zero-Dependency Optimization):**
+7. **DevOps Engineering & Instant Loading (Zero-Dependency Optimization):**
    * **Production Minification Script (`scripts/build.js`):** Strips comments and condenses whitespace across CSS, JavaScript, and HTML, reducing payload sizes by ~30–45% for instant loading on any connection.
    * **Subfolder-Safe Relative Paths:** Engineered specifically for static GitHub Pages hosting (`https://username.github.io/repo-name/`) with relative asset imports and Subresource Integrity CDN links.
 
@@ -97,12 +103,15 @@ COmp/
 │   ├── firebase-config.js       # Firebase Realtime Database config & init (with Demo Mode fallback)
 │   ├── map-controller.js        # Leaflet map controller (O(1) Map dictionary & Geolocation)
 │   ├── report-service.js        # Repository layer: CRUD, Civic Directory & CSV Export engine
+│   ├── security-utils.js        # XSS sanitization, HTML escaping, schema validator & rate-limiting
 │   └── ui-controller.js         # DOM events, A11Y toolbar, multi-select filters, mobile switcher
 ├── scripts/
 │   └── build.js                 # Zero-dependency DevOps minification & production build script
 ├── docs/
 │   └── deploy-workflow.yml.example  # GitHub Actions CI/CD workflow for automated deployment
 ├── package.json                 # NPM scripts ("build", "optimize", "serve", "test")
+├── firebase-security-rules.json # Server-side Firebase console security & regex schema rules
+├── SECURITY.md                  # Complete cybersecurity hardening & rules deployment guide
 ├── CS_LOGIC_EXPLANATION.md      # Complete CS Logic guide, UX standards & 3-minute video script
 └── README.md                    # Project documentation (this file)
 ```
@@ -130,15 +139,7 @@ You can test the application locally in seconds without any build tools:
 
 1. Create a project at [Firebase Console](https://console.firebase.google.com/).
 2. Navigate to **Build > Realtime Database** and click **Create Database**.
-3. Set your Realtime Database security rules:
-   ```json
-   {
-     "rules": {
-       ".read": true,
-       ".write": true
-     }
-   }
-   ```
+3. Copy the security rules from [`firebase-security-rules.json`](./firebase-security-rules.json) into the **Rules** tab to harden your database.
 4. Go to **Project Settings > General > Your apps > Web app** and copy your `firebaseConfig`.
 5. Open `js/firebase-config.js` and replace the placeholder `firebaseConfig` object with your live credentials:
    ```javascript

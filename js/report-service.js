@@ -11,25 +11,13 @@
  *    object with well-typed fields (`id`, `title`, `category`, `lat`, `lng`,
  *    `description`, `severity`, `status`, `timestamp`, `upvotes`).
  *
- * 2. CivicOffice Schema (Government Directory Layer):
- *    Represents verified accessible municipal and congressional offices:
- *    {
- *      "id": "civic_1",
- *      "name": "U.S. House District Office - Constituent Services",
- *      "type": "CONGRESSIONAL",
- *      "lat": 38.8898,
- *      "lng": -77.0090,
- *      "address": "101 Independence Ave SE, Suite 200",
- *      "phone": "(202) 555-0199",
- *      "services": "Constituent advocacy, ADA casework, federal agency liaisons",
- *      "status": "VERIFIED_ACCESSIBLE",
- *      "adaFeatures": ["ADA Compliant Ramp", "Power Doors", "Accessible Elevators", "ASL Interpretation"]
- *    }
+ * 2. Cybersecurity Hardening (XSS, Schema Validation & Spam Protection):
+ *    - Integrates `validateReportInput` and `checkRateLimit` from `security-utils.js`
+ *      to ensure data schema integrity and prevent automated spam pins.
  *
  * 3. Advanced Programming Skill - CSV Data Export Engine (`exportReportsToCSV`):
  *    - Converts JSON trees into standardized RFC 4180 CSV files with proper
- *      string escaping, MIME-type Blob serialization, and automated downloads
- *      so crowdsourced reports can be imported by city planners and DPW engineers.
+ *      string escaping, MIME-type Blob serialization, and automated downloads.
  * ============================================================================
  */
 
@@ -42,6 +30,11 @@ import {
   update, 
   onValue 
 } from "./firebase-config.js";
+import { 
+  validateReportInput, 
+  checkRateLimit, 
+  sanitizeText 
+} from "./security-utils.js";
 
 // Key used for LocalStorage demo database fallback
 const LOCAL_STORAGE_KEY = "access_your_district_reports_v1";
@@ -254,7 +247,6 @@ export function subscribeToReports(callback) {
   subscribers.add(callback);
 
   if (isLiveFirebaseConfigured && db) {
-    // REALTIME DATABASE WEB SDK API CALL:
     const reportsRef = ref(db, "reports");
     
     const unsubscribeFirebase = onValue(
@@ -284,7 +276,6 @@ export function subscribeToReports(callback) {
       unsubscribeFirebase();
     };
   } else {
-    // DEMO MODE (LOCALSTORAGE FALLBACK)
     const initialReports = getLocalReports();
     notifySubscribers(initialReports);
 
@@ -295,24 +286,28 @@ export function subscribeToReports(callback) {
 }
 
 /**
- * Submit a new accessibility barrier report.
+ * Submit a new accessibility barrier report with rigorous cybersecurity hardening.
+ * Enforces XSS sanitization, schema validation, and rate-limiting.
  *
  * @param {Object} formData
  * @returns {Promise<Object>} The newly created report object
  */
 export async function addReport(formData) {
-  const newReport = {
-    title: formData.title.trim(),
-    category: formData.category,
-    lat: Number(formData.lat),
-    lng: Number(formData.lng),
-    description: formData.description.trim(),
-    severity: formData.severity || "MEDIUM",
-    status: "OPEN",
-    timestamp: Date.now(),
-    upvotes: 1
-  };
+  // 1. Check Rate-Limiting / Anti-Spam Guard (15 seconds between submissions)
+  const rateCheck = checkRateLimit("report_submit", 15);
+  if (!rateCheck.allowed) {
+    throw new Error(`⏳ Anti-Spam Rate Limit: Please wait ${rateCheck.remainingSeconds} seconds before submitting another report.`);
+  }
 
+  // 2. Perform Schema Validation & XSS Sanitization
+  const validation = validateReportInput(formData);
+  if (!validation.isValid || !validation.sanitizedData) {
+    throw new Error(`⚠️ Validation Error: ${validation.errors.join(" ")}`);
+  }
+
+  const newReport = validation.sanitizedData;
+
+  // 3. Persist to Firebase or LocalStorage
   if (isLiveFirebaseConfigured && db) {
     const reportsRef = ref(db, "reports");
     const newRef = await push(reportsRef, newReport);
@@ -406,7 +401,6 @@ export function exportReportsToCSV(reports = []) {
     return null;
   }
 
-  // 1. CSV Header Row
   const headers = [
     "Report ID",
     "Location Title / Landmark",
@@ -421,7 +415,6 @@ export function exportReportsToCSV(reports = []) {
     "Epoch Timestamp (ms)"
   ];
 
-  // Helper to escape CSV fields with commas, quotes, or newlines
   const escapeCsvField = (value) => {
     if (value === null || value === undefined) return '""';
     const stringVal = String(value);
@@ -429,7 +422,6 @@ export function exportReportsToCSV(reports = []) {
     return `"${escaped}"`;
   };
 
-  // 2. Build CSV Rows
   const rows = [headers.map(escapeCsvField).join(",")];
 
   for (const r of reports) {
@@ -451,8 +443,6 @@ export function exportReportsToCSV(reports = []) {
   }
 
   const csvContent = rows.join("\r\n");
-
-  // 3. Create Blob and Programmatic Download Link
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   
@@ -468,7 +458,6 @@ export function exportReportsToCSV(reports = []) {
   document.body.appendChild(downloadLink);
   downloadLink.click();
 
-  // Clean up DOM and URL memory
   setTimeout(() => {
     document.body.removeChild(downloadLink);
     URL.revokeObjectURL(url);

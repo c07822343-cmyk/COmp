@@ -29,6 +29,8 @@
  * ============================================================================
  */
 
+import { escapeHTML } from "./security-utils.js";
+
 // Category Metadata Mapping (Icons & Labels for Badges)
 const CATEGORY_META = {
   RAMP:     { label: "Broken Ramp", icon: "♿", color: "#0d47a1" },
@@ -293,15 +295,19 @@ export class MapController {
 
   /**
    * Build HTML content for the Leaflet Popup attached to each barrier marker.
+   * Employs escapeHTML() to neutralize script injection in popup rendering.
    * @param {Object} report
    * @returns {string} HTML string
    */
   buildPopupHTML(report) {
     const meta = CATEGORY_META[report.category] || CATEGORY_META.OTHER;
     const statusText = report.status === "RESOLVED" ? "✔ RESOLVED" : `🔴 ${report.severity || 'MEDIUM'}`;
-    const descExcerpt = report.description.length > 90 
-      ? report.description.substring(0, 90) + "..." 
-      : report.description;
+    const safeTitle = escapeHTML(report.title);
+    const safeDesc = escapeHTML(
+      report.description.length > 90 
+        ? report.description.substring(0, 90) + "..." 
+        : report.description
+    );
 
     return `
       <div class="popup-card">
@@ -309,8 +315,8 @@ export class MapController {
           <span style="font-size:0.78rem; font-weight:800; color:#0d47a1;">${meta.icon} ${meta.label}</span>
           <span style="font-size:0.72rem; font-weight:800; color:#475569;">${statusText}</span>
         </div>
-        <h4 class="popup-title">${report.title}</h4>
-        <p class="popup-desc">${descExcerpt}</p>
+        <h4 class="popup-title">${safeTitle}</h4>
+        <p class="popup-desc">${safeDesc}</p>
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#475569; margin-top:4px;">
           <span>👍 ${report.upvotes || 1} confirmations</span>
         </div>
@@ -389,6 +395,11 @@ export class MapController {
       activeIds.add(office.id);
 
       const existingMarker = this.civicMarkerMap.get(office.id);
+      const safeName = escapeHTML(office.name);
+      const safeAddress = escapeHTML(office.address);
+      const safePhone = escapeHTML(office.phone);
+      const safeServices = escapeHTML(office.services);
+
       const icon = L.divIcon({
         className: "civic-pin-container",
         html: `
@@ -396,7 +407,7 @@ export class MapController {
             background: #047857;
             border: 3px solid #ffffff;
             box-shadow: 0 4px 10px rgba(4, 120, 87, 0.4);
-          " title="${office.name} (Verified Accessible)" role="img" aria-label="${office.name}">
+          " title="${safeName} (Verified Accessible)" role="img" aria-label="${safeName}">
             🏛️
           </div>
         `,
@@ -406,7 +417,7 @@ export class MapController {
       });
 
       const featuresList = (office.adaFeatures || [])
-        .map((f) => `<span style="background:#ecfdf5; color:#047857; padding:2px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">✔ ${f}</span>`)
+        .map((f) => `<span style="background:#ecfdf5; color:#047857; padding:2px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">✔ ${escapeHTML(f)}</span>`)
         .join(" ");
 
       const popupHtml = `
@@ -415,13 +426,13 @@ export class MapController {
             <span style="font-size:0.72rem; font-weight:800; color:#047857; background:#ecfdf5; padding:2px 8px; border-radius:10px;">
               🏛️ VERIFIED ACCESSIBLE
             </span>
-            <span style="font-size:0.7rem; font-weight:700; color:#475569;">${office.type}</span>
+            <span style="font-size:0.7rem; font-weight:700; color:#475569;">${escapeHTML(office.type)}</span>
           </div>
-          <h4 class="popup-title">${office.name}</h4>
+          <h4 class="popup-title">${safeName}</h4>
           <p class="popup-desc" style="margin-bottom:6px;">
-            <strong>Address:</strong> ${office.address}<br>
-            <strong>Phone:</strong> ${office.phone}<br>
-            <strong>Services:</strong> ${office.services}
+            <strong>Address:</strong> ${safeAddress}<br>
+            <strong>Phone:</strong> ${safePhone}<br>
+            <strong>Services:</strong> ${safeServices}
           </p>
           <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
             ${featuresList}

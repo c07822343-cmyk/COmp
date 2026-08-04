@@ -4,12 +4,12 @@
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC, SOCIETAL LAYER & DESIGN EXPLANATION:
- * ----------------------------------------------
- * 1. Accessibility-First Architecture:
- *    - Manages WCAG AAA-compliant text scaling (`data-font-size`) and ultra
- *      high-contrast theme toggling (`data-theme`).
- *    - Announces dynamic updates to screen readers via ARIA live regions.
+ * CS LOGIC, SOCIETAL LAYER & CYBERSECURITY EXPLANATION:
+ * -----------------------------------------------------
+ * 1. Cybersecurity Hardening (XSS & Rate Limiting):
+ *    - Uses `escapeHTML()` to neutralize malicious scripts in rendered DOM.
+ *    - Enforces client-side rate limiting (`checkRateLimit`) and schema
+ *      validation (`validateReportInput`) before triggering database calls.
  *
  * 2. Advanced Multi-Select Filtering & Search Engine:
  *    - Implements an O(n) filter pipeline combining text substring matching,
@@ -22,6 +22,11 @@
  */
 
 import { CATEGORY_META } from "./map-controller.js";
+import { 
+  escapeHTML, 
+  validateReportInput, 
+  checkRateLimit 
+} from "./security-utils.js";
 
 export class UIController {
   /**
@@ -528,6 +533,7 @@ export class UIController {
 
   /**
    * Render report cards in the sidebar corresponding to the filtered dataset.
+   * Employs escapeHTML() to provide output-encoding XSS defense.
    */
   renderReportsList() {
     if (!this.reportsContainer) return;
@@ -549,13 +555,15 @@ export class UIController {
     const markup = this.filteredReports.map((report) => {
       const meta = CATEGORY_META[report.category] || CATEGORY_META.OTHER;
       const dateStr = new Date(report.timestamp).toLocaleDateString();
+      const safeTitle = escapeHTML(report.title);
+      const safeDesc = escapeHTML(report.description);
 
       return `
         <article class="report-card" 
                  role="article" 
                  data-report-id="${report.id}"
                  tabindex="0"
-                 aria-label="${report.title}, Category: ${meta.label}, Urgency: ${report.severity || 'MEDIUM'}">
+                 aria-label="${safeTitle}, Category: ${meta.label}, Urgency: ${report.severity || 'MEDIUM'}">
           <div class="report-card-header">
             <span class="report-card-category">
               ${meta.icon} ${meta.label}
@@ -564,8 +572,8 @@ export class UIController {
               ${report.status === "RESOLVED" ? "✔ RESOLVED" : report.severity}
             </span>
           </div>
-          <h3 class="report-card-title">${report.title}</h3>
-          <p class="report-card-desc">${report.description}</p>
+          <h3 class="report-card-title">${safeTitle}</h3>
+          <p class="report-card-desc">${safeDesc}</p>
           <div class="report-card-footer">
             <span>📅 ${dateStr}</span>
             <span class="report-card-upvotes">👍 ${report.upvotes || 1} confirmations</span>
@@ -626,12 +634,16 @@ export class UIController {
     }
 
     const markup = filtered.map((office) => {
+      const safeName = escapeHTML(office.name);
+      const safeAddress = escapeHTML(office.address);
+      const safeServices = escapeHTML(office.services);
+
       return `
         <article class="report-card civic-office-card" 
                  role="article" 
                  data-office-id="${office.id}"
                  tabindex="0"
-                 aria-label="${office.name}, Verified Accessible Government Office">
+                 aria-label="${safeName}, Verified Accessible Government Office">
           <div class="report-card-header">
             <span class="report-card-category civic-card-category">
               🏛️ VERIFIED ACCESSIBLE
@@ -640,12 +652,12 @@ export class UIController {
               ✔ ${office.type}
             </span>
           </div>
-          <h3 class="report-card-title">${office.name}</h3>
+          <h3 class="report-card-title">${safeName}</h3>
           <p class="report-card-desc" style="margin-bottom: 0.35rem;">
-            <strong>Address:</strong> ${office.address}
+            <strong>Address:</strong> ${safeAddress}
           </p>
           <p class="report-card-desc" style="font-size: 0.78rem;">
-            ${office.services}
+            ${safeServices}
           </p>
           <div class="report-card-footer">
             <span>📞 ${office.phone}</span>
@@ -696,7 +708,7 @@ export class UIController {
     const featuresContainer = document.getElementById("civic-modal-features");
     if (featuresContainer) {
       const pills = (office.adaFeatures || [])
-        .map((f) => `<span class="ada-feature-pill">✔ ${f}</span>`)
+        .map((f) => `<span class="ada-feature-pill">✔ ${escapeHTML(f)}</span>`)
         .join("");
       featuresContainer.innerHTML = pills || `<span class="ada-feature-pill">✔ Fully Accessible</span>`;
     }
@@ -766,11 +778,18 @@ export class UIController {
   }
 
   /**
-   * Validate form fields and submit report.
+   * Validate form fields and submit report with strict rate-limiting and validation.
    * @param {SubmitEvent} e
    */
   async handleReportSubmit(e) {
     e.preventDefault();
+
+    // 1. Client-side Anti-Spam Rate Limit Check (15s cooldown)
+    const rateCheck = checkRateLimit("report_submit", 15);
+    if (!rateCheck.allowed) {
+      this.showToast(`⏳ Anti-Spam Cooldown: Please wait ${rateCheck.remainingSeconds}s before submitting again.`, "error");
+      return;
+    }
 
     const titleInput = document.getElementById("report-location-title");
     const categorySelect = document.getElementById("report-category");
@@ -779,8 +798,19 @@ export class UIController {
     const lngInput = document.getElementById("report-lng");
     const severityRadio = document.querySelector('input[name="severity"]:checked');
 
-    if (!titleInput.value.trim() || !categorySelect.value || !descInput.value.trim()) {
-      this.showToast("⚠️ Please fill in all required fields marked with *", "error");
+    const rawFormData = {
+      title: titleInput.value.trim(),
+      category: categorySelect.value,
+      lat: Number(latInput.value),
+      lng: Number(lngInput.value),
+      description: descInput.value.trim(),
+      severity: severityRadio ? severityRadio.value : "MEDIUM"
+    };
+
+    // 2. Client-side Schema Validation
+    const validation = validateReportInput(rawFormData);
+    if (!validation.isValid) {
+      this.showToast(`⚠️ Validation Error: ${validation.errors[0]}`, "error");
       return;
     }
 
@@ -791,24 +821,16 @@ export class UIController {
       submitBtn.innerHTML = `<span>Saving to Database...</span>`;
     }
 
-    const formData = {
-      title: titleInput.value.trim(),
-      category: categorySelect.value,
-      lat: Number(latInput.value),
-      lng: Number(lngInput.value),
-      description: descInput.value.trim(),
-      severity: severityRadio ? severityRadio.value : "MEDIUM"
-    };
-
     try {
       if (typeof this.callbacks.onReportSubmit === "function") {
-        await this.callbacks.onReportSubmit(formData);
+        await this.callbacks.onReportSubmit(validation.sanitizedData);
       }
       this.closeReportModal();
       this.showToast("🎉 Barrier report successfully pinned to map!", "success");
     } catch (error) {
       console.error("Error submitting report:", error);
-      this.showToast("❌ Failed to save report. Please try again.", "error");
+      const msg = error.message ? error.message : "Failed to save report. Please try again.";
+      this.showToast(`❌ ${msg}`, "error");
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -835,8 +857,8 @@ export class UIController {
     severityBadge.textContent = report.severity || "MEDIUM";
     severityBadge.className = `badge severity-${report.severity || 'MEDIUM'}`;
 
-    document.getElementById("details-title").textContent = report.title;
-    document.getElementById("details-description").textContent = report.description;
+    document.getElementById("details-title").textContent = escapeHTML(report.title);
+    document.getElementById("details-description").textContent = escapeHTML(report.description);
     document.getElementById("details-coords").textContent = `${report.lat.toFixed(5)}, ${report.lng.toFixed(5)}`;
     document.getElementById("details-timestamp").textContent = dateStr;
     

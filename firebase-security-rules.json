@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "reports": {
+      ".read": true,
+      
+      "$report_id": {
+        ".write": "auth != null || !data.exists()",
+        
+        ".validate": "newData.hasChildren(['title', 'category', 'lat', 'lng', 'description', 'severity', 'status', 'timestamp', 'upvotes']) && newData.child('title').isString() && newData.child('title').val().length >= 3 && newData.child('title').val().length <= 100 && newData.child('description').isString() && newData.child('description').val().length >= 5 && newData.child('description').val().length <= 500 && newData.child('category').val().matches(/^(RAMP|SIDEWALK|TACTILE|SIGNAL|SURFACE|OTHER)$/) && newData.child('severity').val().matches(/^(HIGH|MEDIUM|LOW)$/) && newData.child('status').val().matches(/^(OPEN|RESOLVED)$/) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('upvotes').isNumber() && newData.child('upvotes').val() >= 0 && newData.child('timestamp').isNumber() && newData.child('timestamp').val() <= now"
+      }
+    }
+  }
+}

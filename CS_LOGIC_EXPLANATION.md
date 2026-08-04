@@ -1,4 +1,4 @@
-# 🏛️ AccessYourDistrict — CS Logic, UX, Societal Use & Video Submission Guide
+# 🏛️ AccessYourDistrict — CS Logic, UX, Societal Use, Cybersecurity & Video Submission Guide
 **Congressional App Challenge • Civic Inclusion & Crowdsourced Accessibility Platform**
 
 ---
@@ -6,13 +6,14 @@
 ## 📋 Table of Contents
 1. [Executive Summary & Purpose](#1-executive-summary--purpose)
 2. [Societal Use, District Info & Civic Resource Layer (Winning Legacy)](#2-societal-use-district-info--civic-resource-layer-winning-legacy)
-3. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#3-end-to-end-technical-data-flow-for-your-13-minute-video)
-4. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#4-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
-5. [Data Structures & Dynamic JSON District Binding](#5-data-structures--dynamic-json-district-binding)
-6. [API Calls & Real-Time Synchronization Logic](#6-api-calls--real-time-synchronization-logic)
-7. [Modular Software Architecture](#7-modular-software-architecture)
-8. [Step-by-Step GitHub Pages & Firebase Deployment](#8-step-by-step-github-pages--firebase-deployment)
-9. [3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)](#9-3-minute-congressional-app-challenge-video-script-timed--rubric-aligned)
+3. [Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)](#3-cybersecurity--application-hardening-xss-schema-guard--anti-spam)
+4. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#4-end-to-end-technical-data-flow-for-your-13-minute-video)
+5. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#5-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
+6. [Data Structures & Dynamic JSON District Binding](#6-data-structures--dynamic-json-district-binding)
+7. [API Calls & Real-Time Synchronization Logic](#7-api-calls--real-time-synchronization-logic)
+8. [Modular Software Architecture](#8-modular-software-architecture)
+9. [Step-by-Step GitHub Pages & Firebase Deployment](#9-step-by-step-github-pages--firebase-deployment)
+10. [3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)](#10-3-minute-congressional-app-challenge-video-script-timed--rubric-aligned)
 
 ---
 
@@ -48,7 +49,59 @@ Drawing on the winning legacies of past Congressional App Challenge champions li
 
 ---
 
-## 3. End-to-End Technical Data Flow (For Your 1–3 Minute Video)
+## 3. Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)
+
+To ensure **AccessYourDistrict** remains secure against script injection, invalid coordinate poisoning, and automated map spam when hosted publicly on **GitHub Pages**, we implemented a **3-layer defensive cybersecurity architecture**:
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│              LAYER 1: INPUT SANITIZATION & OUTPUT ENCODING                │
+│ • sanitizeText() strips <script>, <iframe>, javascript:, and data: URIs   │
+│ • escapeHTML() encodes strings before rendering to Leaflet Popups/cards   │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│              LAYER 2: GEOGRAPHIC SCHEMA & ANTI-SPAM GUARD                 │
+│ • validateReportInput() enforces WGS84 bounds [-90..90, -180..180] & enums│
+│ • checkRateLimit() enforces a 15-second cooldown between submissions      │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│        LAYER 3: SERVER-SIDE FIREBASE SECURITY RULES (.validate)           │
+│ • Rejects unauthenticated spam writes or malformed JSON payloads          │
+│ • Enforces regex category/severity matches directly in cloud console      │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Cross-Site Scripting (XSS) Prevention (`js/security-utils.js`)
+* **`sanitizeText(input, maxLen)`:** Trims whitespace, enforces maximum character bounds (`100` for `title`, `500` for `description`), and strips dangerous HTML tags (`<script>`, `<iframe>`, `javascript:` URI schemes).
+* **`escapeHTML(str)` (Defense-in-Depth Output Encoding):** Even after strings are sanitized prior to storage, `escapeHTML(str)` encodes output before inserting it into Leaflet Popups or sidebar report cards (`&lt;`, `&gt;`, `&quot;`, `&#39;`, `&#x2F;`), preventing DOM injection attacks.
+
+### 2. Form & Geographic Schema Validation (`validateReportInput`)
+* Prevents users from submitting a report unless they have selected an issue category (`RAMP`, `SIDEWALK`, `TACTILE`, `SIGNAL`, `SURFACE`, `OTHER`) and specified finite WGS84 map coordinates (`-90 <= lat <= 90` and `-180 <= lng <= 180`). Rejects null-island (`0, 0`) coordinates.
+
+### 3. Server-Side Firebase Security Rules (`firebase-security-rules.json`)
+* Protects the cloud database console against unauthorized writes, future-dated spam pins, or malformed payloads by enforcing `.validate` regex patterns and coordinate bounds directly on Google's servers:
+  ```json
+  {
+    "rules": {
+      "reports": {
+        ".read": true,
+        "$report_id": {
+          ".write": "auth != null || !data.exists()",
+          ".validate": "newData.hasChildren(['title', 'category', 'lat', 'lng', 'description', 'severity', 'status', 'timestamp', 'upvotes']) && newData.child('category').val().matches(/^(RAMP|SIDEWALK|TACTILE|SIGNAL|SURFACE|OTHER)$/) && newData.child('severity').val().matches(/^(HIGH|MEDIUM|LOW)$/) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('timestamp').val() <= now"
+        }
+      }
+    }
+  }
+  ```
+  *(See [`SECURITY.md`](./SECURITY.md) for full instructions on applying these rules in your Firebase Console.)*
+
+---
+
+## 4. End-to-End Technical Data Flow (For Your 1–3 Minute Video)
 
 When explaining your technical implementation in your submission video, use this **step-by-step Data Flow summary** to demonstrate mastery of client-server architecture and real-time synchronization:
 
@@ -96,7 +149,7 @@ When explaining your technical implementation in your submission video, use this
 
 ---
 
-## 4. Advanced CS Programming Skill: CSV Export Engine for City Planners
+## 5. Advanced CS Programming Skill: CSV Export Engine for City Planners
 
 In `js/report-service.js`, the `exportReportsToCSV()` function highlights an advanced Computer Science skill: **custom data serialization and browser Blob management**:
 
@@ -124,7 +177,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 5. Data Structures & Dynamic JSON District Binding
+## 6. Data Structures & Dynamic JSON District Binding
 
 1. **The `districtConfig` Schema (`js/district-config.js`):**
    * Stores the Representative's name, district code (`FL-23`), office location, phone, and official House.gov contact URL.
@@ -142,7 +195,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 6. API Calls & Real-Time Synchronization Logic
+## 7. API Calls & Real-Time Synchronization Logic
 
 1. **Firebase Realtime Database WebSockets (`onValue`):** Opens a persistent WebSocket for instant real-time synchronization across all visitors.
 2. **Leaflet.js & OpenStreetMap Tile Layer API:** Dynamically fetches street imagery tiles (`tile.openstreetmap.org/{z}/{x}/{y}.png`) based on viewport zoom and pan coordinates.
@@ -150,7 +203,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 7. Modular Software Architecture
+## 8. Modular Software Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -185,20 +238,12 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 8. Step-by-Step GitHub Pages & Firebase Deployment
+## 9. Step-by-Step GitHub Pages & Firebase Deployment
 
 ### Step 1: Set up Firebase Realtime Database
 1. Go to the [Firebase Console](https://console.firebase.google.com/) and click **Add Project** (e.g., `access-your-district`).
 2. In the left menu, select **Build > Realtime Database** and click **Create Database**.
-3. Choose **Start in test mode** (or configure read/write rules):
-   ```json
-   {
-     "rules": {
-       ".read": true,
-       ".write": true
-     }
-   }
-   ```
+3. Copy the security rules from [`firebase-security-rules.json`](./firebase-security-rules.json) into the **Rules** tab.
 4. Click **Project Settings > General > Add App > Web (`</>`)** and copy your `firebaseConfig` object.
 5. Open `js/firebase-config.js` in this project and replace `apiKey`, `databaseURL`, and other fields with your project credentials.
 
@@ -211,9 +256,9 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 9. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
+## 10. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
 
-> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `js/district-config.js` (JSON header binding), `js/report-service.js` (for CSV Export and Firebase logic), and `js/map-controller.js` (for the O(1) Map dictionary)!
+> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `js/security-utils.js` (XSS sanitization & validation), `js/district-config.js` (JSON header binding), and `firebase-security-rules.json` (server-side security rules)!
 
 ### **[0:00 – 0:40] Introduction, Problem Statement & Congressional Seal Branding**
 * **Visual:** Show yourself speaking or the homepage of **AccessYourDistrict**. Point out the Dynamic Congressional District Header (`FL-23 / Rep. Jared Moskowitz`) and demonstrate clicking the `[ A+ ]` font scaler and toggling `[ 🌗 High Contrast ]`.
@@ -231,16 +276,18 @@ export function exportReportsToCSV(reports) {
   > 
   > *To maximize societal impact, I also added a **Civic Resource Directory**. Residents can search verified ADA-accessible local government and congressional offices, view their verified accessibility features, and connect directly with constituent caseworkers to advocate for repairs."*
 
-### **[1:30 – 2:30] CS Skills: Data Flow, Data Structures & CSV Export (Rubric Focus)**
-* **Visual:** Show the ASCII Data Flow diagram above or switch to your code editor showing `report-service.js` (`addReport`, `exportReportsToCSV`) and `map-controller.js` (`this.markerMap = new Map()`).
+### **[1:30 – 2:30] CS Skills: Cybersecurity, Data Flow & CSV Export (Rubric Focus)**
+* **Visual:** Show the ASCII Data Flow diagram above or switch to your code editor showing `security-utils.js` (`sanitizeText`, `validateReportInput`), `firebase-security-rules.json`, and `map-controller.js` (`this.markerMap = new Map()`).
 * **Script:**
-  > *"Let's look at my **Computer Science logic and Data Flow**. When a citizen submits a report, my `UIController` sanitizes the JSON data and calls `ReportService.addReport()`, which pushes the record to **Firebase Realtime Database**.*
+  > *"Let's look at my **Computer Science logic, Cybersecurity, and Data Flow**. Because AccessYourDistrict is hosted publicly on GitHub Pages, I hardened it with a 3-layer defensive cybersecurity architecture. All user inputs pass through `sanitizeText()` and `escapeHTML()` to neutralize XSS scripts, while `validateReportInput()` checks geographical coordinate bounds.*
   > 
-  > *Instead of polling, my app uses Firebase's `onValue()` WebSocket listener. In under 100 milliseconds, Firebase broadcasts the updated NoSQL tree to every connected citizen's browser. In my `MapController`, instead of using an unindexed array, I index Leaflet markers in a JavaScript **`HashMap (Map<string, L.Marker>)`**. When new data arrives, the app diffs the active IDs and updates markers in **constant time ($O(1)$)** without re-rendering the entire DOM.*
+  > *When a report is submitted, `ReportService.addReport()` pushes the JSON record to **Firebase Realtime Database**. To prevent spam, I configured Server-Side Firebase Security Rules (`.validate`) that reject unauthenticated spam pins or invalid schemas directly in the cloud.*
+  > 
+  > *Instead of polling, my app uses Firebase's `onValue()` WebSocket listener to broadcast updates in under 100 milliseconds. In my `MapController`, I index Leaflet markers in a JavaScript **`HashMap (Map<string, L.Marker>)`**, updating pins in **constant time ($O(1)$)** without re-rendering the DOM.*
   > 
   > *Finally, to turn citizen reports into municipal action, I built a custom **CSV Export engine** using JavaScript Blobs. City planners can export crowdsourced barrier datasets in standard RFC 4180 format to import directly into municipal GIS systems."*
 
 ### **[2:30 – 3:00] Civic Advocacy & Conclusion**
 * **Visual:** Show the filtered map with several reports, the mobile tab switcher, and the Congressional District Portal banner.
 * **Script:**
-  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with verified government resources and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*
+  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with verified government resources, cybersecurity hardening, and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*
