@@ -51,7 +51,7 @@
 </head>
 <body>
   <!-- =========================================================================
-       SKIP TO CONTENT LINK (WCAG AAA Screen-Reader & Keyboard Accessibility)
+       SKIP TO CONTENT LINKS (WCAG AAA Screen-Reader & Keyboard Accessibility)
        ========================================================================= -->
   <a href="#map" class="skip-link">Skip to Interactive Map</a>
   <a href="#app-sidebar" class="skip-link">Skip to Reports Dashboard &amp; Filters</a>
@@ -94,7 +94,8 @@
     <div class="header-actions">
       <!-- Database Connection Status Badge -->
       <div id="db-status-badge" class="status-badge demo-mode" role="status" 
-           title="Shows whether connected to live Firebase Realtime Database or Local Demo Database">
+           title="Shows whether connected to live Firebase Realtime Database or Local Demo Database"
+           aria-live="polite">
         <span class="status-dot"></span>
         <span class="status-text">Demo Mode (Local Storage)</span>
       </div>
@@ -274,46 +275,46 @@
             </select>
           </div>
 
-          <!-- Category Multi-Select Checklist -->
+          <!-- Category Multi-Select Checklist (Keyboard Tab & Enter/Space Accessible) -->
           <div class="category-filters" id="category-filter-list" role="group" aria-label="Toggle issue categories">
-            <label class="filter-chip active" data-category="ALL">
-              <input type="checkbox" checked value="ALL" class="sr-only" />
+            <label class="filter-chip active" data-category="ALL" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="ALL" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">🌐</span>
               <span class="chip-label">All Categories</span>
               <span class="chip-count" id="count-ALL">0</span>
             </label>
-            <label class="filter-chip active" data-category="RAMP">
-              <input type="checkbox" checked value="RAMP" class="sr-only" />
+            <label class="filter-chip active" data-category="RAMP" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="RAMP" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">♿</span>
               <span class="chip-label">Broken Ramp</span>
               <span class="chip-count" id="count-RAMP">0</span>
             </label>
-            <label class="filter-chip active" data-category="SIDEWALK">
-              <input type="checkbox" checked value="SIDEWALK" class="sr-only" />
+            <label class="filter-chip active" data-category="SIDEWALK" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="SIDEWALK" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">🚧</span>
               <span class="chip-label">Blocked Sidewalk</span>
               <span class="chip-count" id="count-SIDEWALK">0</span>
             </label>
-            <label class="filter-chip active" data-category="TACTILE">
-              <input type="checkbox" checked value="TACTILE" class="sr-only" />
+            <label class="filter-chip active" data-category="TACTILE" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="TACTILE" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">🦯</span>
               <span class="chip-label">No Tactile Paving</span>
               <span class="chip-count" id="count-TACTILE">0</span>
             </label>
-            <label class="filter-chip active" data-category="SIGNAL">
-              <input type="checkbox" checked value="SIGNAL" class="sr-only" />
+            <label class="filter-chip active" data-category="SIGNAL" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="SIGNAL" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">🔊</span>
               <span class="chip-label">Audible Signal</span>
               <span class="chip-count" id="count-SIGNAL">0</span>
             </label>
-            <label class="filter-chip active" data-category="SURFACE">
-              <input type="checkbox" checked value="SURFACE" class="sr-only" />
+            <label class="filter-chip active" data-category="SURFACE" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="SURFACE" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">⚠️</span>
               <span class="chip-label">Uneven Surface</span>
               <span class="chip-count" id="count-SURFACE">0</span>
             </label>
-            <label class="filter-chip active" data-category="OTHER">
-              <input type="checkbox" checked value="OTHER" class="sr-only" />
+            <label class="filter-chip active" data-category="OTHER" tabindex="0" role="checkbox" aria-checked="true">
+              <input type="checkbox" checked value="OTHER" class="sr-only" tabindex="-1" />
               <span class="chip-icon" aria-hidden="true">📌</span>
               <span class="chip-label">Other Barrier</span>
               <span class="chip-count" id="count-OTHER">0</span>
@@ -375,7 +376,8 @@
       <footer class="sidebar-footer" role="contentinfo">
         <!-- Advanced CS Skill: CSV Export for City Planners -->
         <button type="button" id="btn-export-csv-footer" class="btn btn-sm btn-secondary export-footer-btn" 
-                title="Export database reports to CSV for city planners and DPW repair crews">
+                title="Export database reports to CSV for city planners and DPW repair crews"
+                aria-label="Export reports to CSV file for city planners">
           <span aria-hidden="true">📥</span>
           <span>Export CSV for City Planners (.csv)</span>
         </button>
@@ -412,7 +414,7 @@
 
     <!-- MAP CONTAINER -->
     <div class="map-wrapper" id="map-wrapper">
-      <div id="map" class="map-container" aria-label="Interactive map of local congressional district showing accessibility barriers and civic offices" tabindex="0"></div>
+      <div id="map" class="map-container" aria-label="Interactive map of local congressional district showing accessibility barriers and civic offices. Use Tab to move through map markers and press Enter to view popup details." tabindex="0"></div>
       
       <!-- High-Contrast Floating Map Legend -->
       <div class="map-overlay-legend" role="region" aria-label="Map marker color legend">
@@ -433,7 +435,7 @@
     <div class="modal-card">
       <header class="modal-header">
         <h2 id="modal-title" class="modal-title">Report Accessibility Barrier</h2>
-        <button type="button" id="btn-close-modal" class="btn-close" aria-label="Close dialog">&times;</button>
+        <button type="button" id="btn-close-modal" class="btn-close" aria-label="Close report barrier dialog">&times;</button>
       </header>
 
       <form id="report-form" class="report-form" novalidate>
@@ -441,8 +443,11 @@
         <div class="form-group">
           <label for="report-location-title" class="form-label">Location / Landmark Name *</label>
           <input type="text" id="report-location-title" name="title" class="form-input" 
-                 placeholder="e.g., NE corner of Main St &amp; 5th Ave" required aria-required="true" />
-          <div class="location-coords" id="modal-coords-display" role="status">
+                 placeholder="e.g., NE corner of Main St &amp; 5th Ave" 
+                 required aria-required="true" 
+                 aria-describedby="title-hint" />
+          <span id="title-hint" class="sr-only">Enter the street corner or landmark name where the barrier is located.</span>
+          <div class="location-coords" id="modal-coords-display" role="status" aria-live="polite">
             Selected Coordinates: --, --
           </div>
         </div>
@@ -450,7 +455,7 @@
         <!-- Issue Category Selector -->
         <div class="form-group">
           <label for="report-category" class="form-label">Issue Category *</label>
-          <select id="report-category" name="category" class="form-select" required aria-required="true">
+          <select id="report-category" name="category" class="form-select" required aria-required="true" aria-describedby="category-hint">
             <option value="" disabled selected>-- Select barrier category --</option>
             <option value="RAMP">♿ Broken or Missing Wheelchair Ramp</option>
             <option value="SIDEWALK">🚧 Blocked Sidewalk / Obstruction</option>
@@ -459,24 +464,25 @@
             <option value="SURFACE">⚠️ Uneven Surface / Pothole / Cracks</option>
             <option value="OTHER">📌 Other Accessibility Barrier</option>
           </select>
+          <span id="category-hint" class="sr-only">Choose the category that best describes the accessibility barrier.</span>
         </div>
 
-        <!-- Severity Selector -->
+        <!-- Severity Selector (Accessible Radiogroup with Labels) -->
         <div class="form-group">
-          <label class="form-label">Severity Level *</label>
-          <div class="severity-options" role="radiogroup" aria-label="Select severity level">
-            <label class="severity-option high">
-              <input type="radio" name="severity" value="HIGH" checked />
+          <label class="form-label" id="severity-label">Severity Level *</label>
+          <div class="severity-options" role="radiogroup" aria-labelledby="severity-label">
+            <label class="severity-option high" for="sev-high">
+              <input type="radio" id="sev-high" name="severity" value="HIGH" checked />
               <span class="severity-tag">High Urgency</span>
               <span class="severity-desc">Prevents wheelchair/mobility access</span>
             </label>
-            <label class="severity-option medium">
-              <input type="radio" name="severity" value="MEDIUM" />
+            <label class="severity-option medium" for="sev-medium">
+              <input type="radio" id="sev-medium" name="severity" value="MEDIUM" />
               <span class="severity-tag">Medium Urgency</span>
               <span class="severity-desc">Significant hazard or difficulty</span>
             </label>
-            <label class="severity-option low">
-              <input type="radio" name="severity" value="LOW" />
+            <label class="severity-option low" for="sev-low">
+              <input type="radio" id="sev-low" name="severity" value="LOW" />
               <span class="severity-tag">Low Urgency</span>
               <span class="severity-desc">Minor inconvenience</span>
             </label>
@@ -487,7 +493,10 @@
         <div class="form-group">
           <label for="report-description" class="form-label">Description &amp; Suggested Fix *</label>
           <textarea id="report-description" name="description" class="form-textarea" rows="3"
-                    placeholder="Describe the barrier and how it affects community members (e.g., curb cut is cracked and flooded after rain)..." required aria-required="true"></textarea>
+                    placeholder="Describe the barrier and how it affects community members (e.g., curb cut is cracked and flooded after rain)..." 
+                    required aria-required="true" 
+                    aria-describedby="desc-hint"></textarea>
+          <span id="desc-hint" class="sr-only">Provide details about the barrier and how it impacts mobility or visual access.</span>
         </div>
 
         <!-- Hidden input for coordinates -->
@@ -514,7 +523,7 @@
           <span id="details-category-badge" class="badge">Category</span>
           <span id="details-severity-badge" class="badge">Severity</span>
         </div>
-        <button type="button" id="btn-close-details" class="btn-close" aria-label="Close details">&times;</button>
+        <button type="button" id="btn-close-details" class="btn-close" aria-label="Close report details modal">&times;</button>
       </header>
       
       <div class="details-body">

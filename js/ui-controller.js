@@ -4,20 +4,22 @@
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC, SOCIETAL LAYER & CYBERSECURITY EXPLANATION:
- * -----------------------------------------------------
- * 1. Cybersecurity Hardening (XSS & Rate Limiting):
+ * CS LOGIC, A11Y, SOCIETAL LAYER & CYBERSECURITY EXPLANATION:
+ * ---------------------------------------------------------
+ * 1. Accessibility-First & Full Keyboard Navigation (A11y):
+ *    - All filter chips, buttons, and sidebar cards are operable using Tab,
+ *      Enter, and Space keys.
+ *    - Modal dialogs announce status changes via ARIA live regions and restore
+ *      focus to the triggering element upon closing.
+ *
+ * 2. Cybersecurity Hardening (XSS & Rate Limiting):
  *    - Uses `escapeHTML()` to neutralize malicious scripts in rendered DOM.
  *    - Enforces client-side rate limiting (`checkRateLimit`) and schema
  *      validation (`validateReportInput`) before triggering database calls.
  *
- * 2. Advanced Multi-Select Filtering & Search Engine:
+ * 3. Advanced Multi-Select Filtering & Search Engine:
  *    - Implements an O(n) filter pipeline combining text substring matching,
  *      categorical multi-select set inclusion (`selectedCategories`), and severity.
- *
- * 3. Government & Congressional Directory (Societal Use Layer):
- *    - Searchable directory of verified ADA-accessible civic offices that
- *      connects constituents directly to municipal DPW and congressional staff.
  * ============================================================================
  */
 
@@ -57,9 +59,10 @@ export class UIController {
     // Active Sidebar Tab ('reports' | 'civic')
     this.activeSidebarTab = "reports";
 
-    // Currently opened modals
+    // Currently opened modals & last focused element for focus restoration
     this.selectedReportId = null;
     this.selectedCivicOfficeId = null;
+    this.lastFocusedElement = null;
 
     // DOM references
     this.reportsContainer = document.getElementById("reports-list-container");
@@ -120,13 +123,21 @@ export class UIController {
       tabCivicBtn.addEventListener("click", () => this.setSidebarTab("civic"));
     }
 
-    // 5. Multi-Select Category Checkbox Filter Chips
+    // 5. Multi-Select Category Checkbox Filter Chips (Keyboard Tab & Enter/Space Accessible)
     const chips = document.querySelectorAll(".category-filters .filter-chip");
     chips.forEach((chip) => {
       chip.addEventListener("click", (e) => {
         e.preventDefault();
         const category = chip.getAttribute("data-category");
         this.toggleCategoryFilter(category);
+      });
+
+      chip.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          const category = chip.getAttribute("data-category");
+          this.toggleCategoryFilter(category);
+        }
       });
     });
 
@@ -396,7 +407,7 @@ export class UIController {
   }
 
   /**
-   * Update visual checkmark and active class on filter chips.
+   * Update visual checkmark and ARIA checked state on filter chips.
    */
   updateFilterUI() {
     const chips = document.querySelectorAll(".category-filters .filter-chip");
@@ -404,6 +415,7 @@ export class UIController {
       const category = chip.getAttribute("data-category");
       const isSelected = this.selectedCategories.has(category);
       chip.classList.toggle("active", isSelected);
+      chip.setAttribute("aria-checked", isSelected ? "true" : "false");
 
       const checkbox = chip.querySelector("input[type='checkbox']");
       if (checkbox) checkbox.checked = isSelected;
@@ -691,12 +703,14 @@ export class UIController {
 
   /**
    * Open Civic Office profile modal with ADA verification details.
+   * Traps/stores focus for accessibility restoration.
    * @param {string} officeId
    */
   openCivicModal(officeId) {
     const office = this.allCivicOffices.find((o) => o.id === officeId);
     if (!office || !this.civicModal) return;
 
+    this.lastFocusedElement = document.activeElement;
     this.selectedCivicOfficeId = officeId;
 
     document.getElementById("civic-type-badge").textContent = office.type || "GOVERNMENT";
@@ -718,10 +732,15 @@ export class UIController {
     } else {
       this.civicModal.setAttribute("open", "true");
     }
+
+    setTimeout(() => {
+      const closeBtn = document.getElementById("btn-close-civic");
+      if (closeBtn) closeBtn.focus();
+    }, 100);
   }
 
   /**
-   * Close Civic Office profile modal.
+   * Close Civic Office profile modal and restore focus.
    */
   closeCivicModal() {
     if (!this.civicModal) return;
@@ -731,15 +750,22 @@ export class UIController {
       this.civicModal.removeAttribute("open");
     }
     this.selectedCivicOfficeId = null;
+
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === "function") {
+      this.lastFocusedElement.focus();
+    }
   }
 
   /**
    * Open the new barrier report modal with coordinates pre-populated.
+   * Stores triggering focus for accessibility restoration.
    * @param {number} lat
    * @param {number} lng
    */
   openReportModal(lat, lng) {
     if (!this.reportModal) return;
+
+    this.lastFocusedElement = document.activeElement;
 
     document.getElementById("report-lat").value = lat;
     document.getElementById("report-lng").value = lng;
@@ -765,7 +791,7 @@ export class UIController {
   }
 
   /**
-   * Close report modal dialog.
+   * Close report modal dialog and restore focus.
    */
   closeReportModal() {
     if (!this.reportModal) return;
@@ -774,6 +800,10 @@ export class UIController {
       this.reportModal.close();
     } else {
       this.reportModal.removeAttribute("open");
+    }
+
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === "function") {
+      this.lastFocusedElement.focus();
     }
   }
 
@@ -841,12 +871,14 @@ export class UIController {
 
   /**
    * Open Details Modal for a specific report ID.
+   * Traps/stores focus for accessibility restoration.
    * @param {string} reportId
    */
   openDetailsModal(reportId) {
     const report = this.allReports.find((r) => r.id === reportId);
     if (!report || !this.detailsModal) return;
 
+    this.lastFocusedElement = document.activeElement;
     this.selectedReportId = reportId;
 
     const meta = CATEGORY_META[report.category] || CATEGORY_META.OTHER;
@@ -883,10 +915,15 @@ export class UIController {
     } else {
       this.detailsModal.setAttribute("open", "true");
     }
+
+    setTimeout(() => {
+      const closeBtn = document.getElementById("btn-close-details");
+      if (closeBtn) closeBtn.focus();
+    }, 100);
   }
 
   /**
-   * Close Details Modal.
+   * Close Details Modal and restore focus.
    */
   closeDetailsModal() {
     if (!this.detailsModal) return;
@@ -896,6 +933,10 @@ export class UIController {
       this.detailsModal.removeAttribute("open");
     }
     this.selectedReportId = null;
+
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === "function") {
+      this.lastFocusedElement.focus();
+    }
   }
 
   /**

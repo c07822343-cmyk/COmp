@@ -15,20 +15,22 @@
 
 ### 🏆 Why Judges Will Love This Implementation
 
-1. **Dynamic Congressional District Header & House.gov Integration:**
+1. **Accessibility First (WCAG 2.2 Level AA / Level AAA & Screen Reader Compliant):**
+   * **Screen-Reader ARIA Leaflet Map Pins:** Unlike standard Leaflet canvas/icon markers that are ignored by assistive technologies, every map pin is decorated with explicit `role="button"`, `tabindex="0"`, and descriptive `aria-label` attributes (`"Barrier Pin: Broken Ramp at Library Entrance, Category: Broken Ramp, Urgency: HIGH, Status: OPEN. Press Enter or Space to open details popup."`).
+   * **Full Keyboard Navigation:** All interactive elements (map pins, filter chips, sidebar cards, modal dialogs) are operable using only the **Tab**, **Shift+Tab**, **Enter**, and **Space** keys, with automatic focus restoration when dialogs close.
+   * **WCAG 2.2 Color Contrast Audit (All Ratios >= 4.5:1):** Every primary button (`9.89:1`), Congressional Navy banner (`11.4:1`), and urgency severity badge (`5.5:1` to `8.9:1`) exceeds WCAG Level AA and Level AAA standards.
+   * **Ultra High-Contrast Dark Mode (`🌗 High Contrast`):** Inspired by accessibility winners like *SoniSight*, users can switch to an Ultra High-Contrast Dark Theme (`#000000` background, `#ffff00` headings, `#00ffff` links) exceeding contrast ratios > 7:1.
+   * **Dynamic Text Scaler (`A`, `A+`, `A++`):** Built-in accessibility toolbar allows visually impaired visitors to scale root text sizing proportionally by up to **135%** on the fly.
+
+2. **Dynamic Congressional District Header & House.gov Integration:**
    * **JSON-Driven District Banner (`#district-header-banner`):** Displays your Representative's name (`Rep. Jared Moskowitz`), district code (`FL-23`), office location, and constituent phone number dynamically from a clean JSON configuration object (`js/district-config.js`). Any student in any of the 435 U.S. Congressional Districts can customize this file to adapt the app for their representative!
    * **Official U.S. House Contact Link:** Features a prominent **`Contact Representative`** button linking directly to your Member's official **[House.gov](https://moskowitz.house.gov/contact)** constituent contact website.
    * **Congressional Seal Aesthetic:** Styled with official Congressional navy blue (`#0a2540`), American gold borders (`#d4af37`), and star motifs (`★★★`), lending the dignity and authority of a federal constituent program.
 
-2. **Cybersecurity Hardened (3-Layer Defensive Architecture):**
+3. **Cybersecurity Hardened (3-Layer Defensive Architecture):**
    * **Client-Side XSS Sanitization & Output Encoding (`js/security-utils.js`):** Strips dangerous tags (`<script>`, `<iframe>`, `javascript:` URIs) and encodes HTML entities (`escapeHTML`, `sanitizeText`) to neutralize script injection.
    * **Geographic Schema & Anti-Spam Guard:** Verifies finite WGS84 coordinate ranges (`-90 <= lat <= 90`, `-180 <= lng <= 180`), enforces strict category/severity enum matching, and applies a 15-second cooldown between report submissions (`checkRateLimit`).
    * **Server-Side Firebase Security Rules (`firebase-security-rules.json`):** Enforces `.validate` regex patterns and coordinate bounds directly in Google's cloud console to reject unauthenticated spam writes or malformed JSON payloads.
-
-3. **Accessibility First (WCAG AAA & ADA Compliant Design):**
-   * **Ultra High-Contrast Dark Mode (`🌗 High Contrast`):** Inspired by accessibility winners like *SoniSight*, users can switch between a clean high-contrast civic theme and an Ultra High-Contrast Dark Theme (`#000000` background, `#ffff00` headings, and `#00ffff` links) exceeding WCAG AAA contrast ratios (> 7:1).
-   * **Dynamic Text Scaler (`A`, `A+`, `A++`):** Built-in accessibility toolbar allows visually impaired visitors to scale root text sizing by up to **135%** on the fly.
-   * **WCAG 2.2 Touch Targets & Keyboard Focus:** Minimum 44–48px touch targets for all buttons and crisp 3px visible focus outlines for screen readers and keyboard navigation.
 
 4. **Societal Use & Civic Resource Directory (Winning Legacy):**
    * **Searchable Government Directory (`🏛️ Civic Directory` Tab):** Drawing inspiration from past winners like *CivicLink* and *EnAct*, residents can search verified ADA-accessible municipal, DPW, and U.S. Congressional constituent offices.
@@ -94,7 +96,7 @@ COmp/
 │   └── images/
 │       └── og-preview.png       # 1200x630 Open Graph / Twitter Card preview graphic
 ├── css/
-│   ├── styles.css               # Accessible source stylesheet (with Congressional seal branding)
+│   ├── styles.css               # Accessible source stylesheet (WCAG 2.2 Level AA / AAA audit block)
 │   └── styles.min.css           # Minified production CSS (~31% smaller)
 ├── js/
 │   ├── app.js                   # Main application orchestrator

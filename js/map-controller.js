@@ -4,8 +4,8 @@
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC & MAP ARCHITECTURE EXPLANATION:
- * ----------------------------------------
+ * CS LOGIC, A11Y & MAP ARCHITECTURE EXPLANATION:
+ * ----------------------------------------------
  * 1. OpenStreetMap Tile Layer API:
  *    - Uses free, crowdsourced OpenStreetMap tile servers (`tile.openstreetmap.org`)
  *      to render interactive street maps without commercial API keys.
@@ -17,15 +17,14 @@
  *    - This achieves O(1) lookup time to add, update, or remove individual
  *      markers without re-rendering the entire layer.
  *
- * 3. Geolocation & Interactive Reporting Mode:
+ * 3. Screen Reader ARIA Labels & Keyboard Accessibility:
+ *    - Every map marker icon DOM element is decorated with `role="button"`,
+ *      `tabindex="0"`, and descriptive `aria-label` attributes.
+ *    - Keyboard users can Tab through pins and press Enter/Space to open popups.
+ *
+ * 4. Geolocation & Interactive Reporting Mode:
  *    - Leverages HTML5 Geolocation API (`navigator.geolocation`) to automatically
  *      center on the citizen's actual congressional district when the app opens.
- *    - In "Reporting Mode", event delegation captures pixel clicks and converts
- *      them into WGS84 geographic coordinates (Latitude, Longitude).
- *
- * 4. Civic Resource Layer (Government Directory):
- *    - Renders official local government and congressional district offices
- *      with a distinct 'Verified Accessible' badge (`🏛️`).
  * ============================================================================
  */
 
@@ -310,7 +309,7 @@ export class MapController {
     );
 
     return `
-      <div class="popup-card">
+      <div class="popup-card" role="region" aria-label="Barrier report popup: ${safeTitle}">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
           <span style="font-size:0.78rem; font-weight:800; color:#0d47a1;">${meta.icon} ${meta.label}</span>
           <span style="font-size:0.72rem; font-weight:800; color:#475569;">${statusText}</span>
@@ -320,8 +319,9 @@ export class MapController {
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#475569; margin-top:4px;">
           <span>👍 ${report.upvotes || 1} confirmations</span>
         </div>
-        <button class="btn btn-sm btn-primary popup-btn" 
-                onclick="window.dispatchEvent(new CustomEvent('open-report-details', { detail: '${report.id}' }))">
+        <button type="button" class="btn btn-sm btn-primary popup-btn" 
+                onclick="window.dispatchEvent(new CustomEvent('open-report-details', { detail: '${report.id}' }))"
+                aria-label="View full details for barrier report: ${safeTitle}">
           View Full Details
         </button>
       </div>
@@ -331,6 +331,7 @@ export class MapController {
   /**
    * Synchronize Leaflet map markers with the filtered reports array.
    * Uses an O(1) Map dictionary to add, update, or remove markers smoothly.
+   * Decorates marker DOM elements with ARIA labels and keyboard listeners.
    *
    * @param {Array<Object>} filteredReports
    */
@@ -343,20 +344,42 @@ export class MapController {
       const existingMarker = this.markerMap.get(report.id);
       const icon = this.buildPinIcon(report);
       const popupHtml = this.buildPopupHTML(report);
+      const meta = CATEGORY_META[report.category] || CATEGORY_META.OTHER;
+      const safeTitle = escapeHTML(report.title);
+      const ariaText = `Barrier Pin: ${safeTitle}, Category: ${meta.label}, Urgency: ${report.severity || 'MEDIUM'}, Status: ${report.status || 'OPEN'}. Press Enter or Space to open details popup.`;
 
       if (existingMarker) {
         existingMarker.setLatLng([report.lat, report.lng]);
         existingMarker.setIcon(icon);
         existingMarker.setPopupContent(popupHtml);
+        const el = existingMarker.getElement();
+        if (el) el.setAttribute("aria-label", ariaText);
       } else {
         const newMarker = L.marker([report.lat, report.lng], {
           icon: icon,
-          title: report.title
+          title: report.title,
+          alt: ariaText
         });
 
         newMarker.bindPopup(popupHtml, {
           closeButton: true,
           autoPan: true
+        });
+
+        // Add ARIA attributes & keyboard accessibility after Leaflet renders marker icon
+        newMarker.on("add", () => {
+          const el = newMarker.getElement();
+          if (el) {
+            el.setAttribute("role", "button");
+            el.setAttribute("tabindex", "0");
+            el.setAttribute("aria-label", ariaText);
+            el.addEventListener("keydown", (evt) => {
+              if (evt.key === "Enter" || evt.key === " ") {
+                evt.preventDefault();
+                newMarker.openPopup();
+              }
+            });
+          }
         });
 
         this.markerLayer.addLayer(newMarker);
@@ -399,6 +422,7 @@ export class MapController {
       const safeAddress = escapeHTML(office.address);
       const safePhone = escapeHTML(office.phone);
       const safeServices = escapeHTML(office.services);
+      const ariaText = `Verified Government Office Pin: ${safeName}, Type: ${office.type}. Press Enter or Space to open office accessibility profile.`;
 
       const icon = L.divIcon({
         className: "civic-pin-container",
@@ -421,7 +445,7 @@ export class MapController {
         .join(" ");
 
       const popupHtml = `
-        <div class="popup-card">
+        <div class="popup-card" role="region" aria-label="Government office popup: ${safeName}">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <span style="font-size:0.72rem; font-weight:800; color:#047857; background:#ecfdf5; padding:2px 8px; border-radius:10px;">
               🏛️ VERIFIED ACCESSIBLE
@@ -437,8 +461,9 @@ export class MapController {
           <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
             ${featuresList}
           </div>
-          <button class="btn btn-sm btn-success popup-btn"
-                  onclick="window.dispatchEvent(new CustomEvent('open-civic-details', { detail: '${office.id}' }))">
+          <button type="button" class="btn btn-sm btn-success popup-btn"
+                  onclick="window.dispatchEvent(new CustomEvent('open-civic-details', { detail: '${office.id}' }))"
+                  aria-label="View office and accessibility profile for ${safeName}">
             View Office &amp; Accessibility Profile
           </button>
         </div>
@@ -448,16 +473,34 @@ export class MapController {
         existingMarker.setLatLng([office.lat, office.lng]);
         existingMarker.setIcon(icon);
         existingMarker.setPopupContent(popupHtml);
+        const el = existingMarker.getElement();
+        if (el) el.setAttribute("aria-label", ariaText);
       } else {
         const newMarker = L.marker([office.lat, office.lng], {
           icon: icon,
           title: office.name,
-          zIndexOffset: 500
+          zIndexOffset: 500,
+          alt: ariaText
         });
 
         newMarker.bindPopup(popupHtml, {
           closeButton: true,
           autoPan: true
+        });
+
+        newMarker.on("add", () => {
+          const el = newMarker.getElement();
+          if (el) {
+            el.setAttribute("role", "button");
+            el.setAttribute("tabindex", "0");
+            el.setAttribute("aria-label", ariaText);
+            el.addEventListener("keydown", (evt) => {
+              if (evt.key === "Enter" || evt.key === " ") {
+                evt.preventDefault();
+                newMarker.openPopup();
+              }
+            });
+          }
         });
 
         this.civicLayer.addLayer(newMarker);
