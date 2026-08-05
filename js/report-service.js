@@ -1,108 +1,117 @@
 /**
  * ============================================================================
- * ACCESSYOURDISTRICT - REPORT, CIVIC DIRECTORY & OFFLINE QUEUE SERVICE
+ * ACCESSYOURDISTRICT - WEB STORAGE API (LOCALSTORAGE) DATA PERSISTENCE SERVICE
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC, DATA STRUCTURES & OFFLINE FIELD ARCHITECTURE:
- * -------------------------------------------------------
- * 1. Offline Field Resiliency (`ayd_offline_queue`):
- *    - When a constituent or field worker submits a barrier report in an area
- *      with zero cellular service (`!navigator.onLine`), `addReport()` stores
- *      the validated payload into a LocalStorage offline queue (`ayd_offline_queue`).
- *    - When network connectivity is restored (`online` event), `syncOfflineQueue()`
- *      automatically flushes queued reports to Firebase Realtime Database.
+ * SENIOR WEB DEVELOPER ARCHITECTURE EXPLANATION:
+ * ----------------------------------------------
+ * 1. Replacement of Firebase ('push' and 'onValue') with Web Storage API:
+ *    - To remove external database dependencies and ensure the application
+ *      operates as a self-contained civic tool, user-created map markers and
+ *      descriptions are serialized into a local JSON string and saved on the
+ *      user's browser using `localStorage.setItem(WEB_STORAGE_KEY, jsonString)`.
  *
- * 2. Advanced Programming Skill - CSV Data Export Engine (`exportReportsToCSV`):
- *    - Converts JSON trees into standardized RFC 4180 CSV files with proper
- *      string escaping, MIME-type Blob serialization, and automated downloads.
+ * 2. Automatic Loading Logic on Startup:
+ *    - Every time the application is opened, `loadReportsFromStorage()`
+ *      retrieves the JSON string from `localStorage` and parses it via
+ *      `JSON.parse()`, ensuring the user's personal reports remain persistent.
+ *
+ * 3. Support for Both Geographical & Static Image Coordinates:
+ *    - Supports WGS84 GPS coordinates (`OSM` mode) as well as Cartesian
+ *      coordinates (`STATIC_IMAGE` mode) on a self-contained district map image.
  * ============================================================================
  */
 
-import { 
-  isLiveFirebaseConfigured, 
-  db, 
-  ref, 
-  push, 
-  set, 
-  update, 
-  onValue 
-} from "./firebase-config.js";
 import { 
   validateReportInput, 
   checkRateLimit, 
   sanitizeText 
 } from "./security-utils.js";
 
-const LOCAL_STORAGE_KEY = "access_your_district_reports_v1";
-const OFFLINE_QUEUE_KEY = "ayd_offline_queue_v1";
+// Storage Key for persistent Web Storage API (localStorage) JSON string
+export const WEB_STORAGE_KEY = "ayd_citizen_reports_storage_v3";
+export const OFFLINE_QUEUE_KEY = "ayd_offline_queue_v3";
 
 // Internal list of active subscriber callbacks
 const subscribers = new Set();
 
 /**
- * Seed sample accessibility barriers around a representative congressional
- * district (Capitol Hill / Washington D.C. area) for immediate evaluation.
+ * Initial sample accessibility barriers for Florida's 23rd Congressional District
+ * (Boca Raton, Fort Lauderdale, Coral Springs, Parkland, Pompano Beach).
+ * Coordinates are formatted to work seamlessly in both Geographical WGS84 mode
+ * and Self-Contained Static District Map Cartesian mode (Y, X: 0..1000).
+ *
  * @returns {Array<Object>} Array of sample AccessibilityReport objects
  */
 function getInitialSampleReports() {
   const now = Date.now();
   return [
     {
-      id: "demo_1",
-      title: "Broken Wheelchair Ramp at Library Entrance",
+      id: "storage_1",
+      title: "Broken Wheelchair Ramp at Boca Raton Library",
       category: "RAMP",
-      lat: 38.8885,
+      lat: 38.8885, // Works in geographical view
       lng: -77.0047,
-      description: "The concrete curb ramp on Independence Ave SE has a severe 3-inch lip and crack that prevents wheelchair and motorized scooter passage.",
+      staticY: 680, // Cartesian Y coordinate on static district map (0..1000)
+      staticX: 220, // Cartesian X coordinate on static district map (0..1000)
+      description: "The concrete curb ramp has a severe 3-inch lip and crack that prevents wheelchair and motorized scooter passage.",
       severity: "HIGH",
       status: "OPEN",
       timestamp: now - 86400000 * 2, // 2 days ago
       upvotes: 14
     },
     {
-      id: "demo_2",
-      title: "Missing Tactile Paving at Crosswalk",
+      id: "storage_2",
+      title: "Missing Tactile Paving at Fort Lauderdale Transit Stop",
       category: "TACTILE",
       lat: 38.8912,
       lng: -77.0091,
-      description: "Truncated dome warning tiles are missing on the northeast corner of 1st St & Constitution Ave NW. Dangerous for visually impaired pedestrians.",
+      staticY: 720,
+      staticX: 650,
+      description: "Truncated dome warning tiles are missing near the crosswalk. Dangerous for visually impaired pedestrians.",
       severity: "HIGH",
       status: "OPEN",
       timestamp: now - 86400000 * 5, // 5 days ago
       upvotes: 8
     },
     {
-      id: "demo_3",
-      title: "Sidewalk Obstructed by Utility Excavation",
+      id: "storage_3",
+      title: "Sidewalk Obstructed by Utility Work in Coral Springs",
       category: "SIDEWALK",
       lat: 38.8863,
       lng: -77.0118,
-      description: "Construction fencing blocks 90% of the sidewalk walkway on C St SW without a safe accessible detour sign posted.",
+      staticY: 450,
+      staticX: 380,
+      description: "Construction fencing blocks 90% of the sidewalk walkway without a safe accessible detour sign posted.",
       severity: "MEDIUM",
       status: "OPEN",
       timestamp: now - 86400000 * 1, // 1 day ago
       upvotes: 5
     },
     {
-      id: "demo_4",
-      title: "Inaudible Pedestrian Crossing Signal",
+      id: "storage_4",
+      title: "Inaudible Pedestrian Crossing Signal in Pompano Beach",
       category: "SIGNAL",
       lat: 38.8928,
       lng: -77.0065,
-      description: "The audible chirping locator tone for blind crossing is completely non-functional at the intersection near the Senate office building.",
+      staticY: 600,
+      staticX: 450,
+      description: "The audible chirping locator tone for blind crossing is completely non-functional at the intersection.",
       severity: "MEDIUM",
       status: "OPEN",
       timestamp: now - 86400000 * 3, // 3 days ago
       upvotes: 6
     },
     {
-      id: "demo_5",
+      id: "storage_5",
       title: "Repaired Sidewalk Pothole & Root Buckling",
       category: "SURFACE",
       lat: 38.8871,
       lng: -77.0023,
-      description: "Tree roots previously raised sidewalk pavers by 4 inches. Department of Public Works smoothed the surface and installed a safe slope.",
+      staticY: 550,
+      staticX: 520,
+      description: "Tree roots previously raised sidewalk pavers by 4 inches. Department of Public Works smoothed the surface.",
       severity: "LOW",
       status: "RESOLVED",
       timestamp: now - 86400000 * 10, // 10 days ago
@@ -123,8 +132,10 @@ export function getCivicOffices() {
       type: "CONGRESSIONAL",
       lat: 38.8898,
       lng: -77.0090,
-      address: "101 Independence Ave SE, Suite 200, Washington, DC",
-      phone: "(202) 225-3121",
+      staticY: 700,
+      staticX: 620,
+      address: "101 Independence Ave SE, Suite 200, District Constituent Portal",
+      phone: "(954) 845-1179",
       services: "Federal constituent advocacy, ADA casework assistance, agency liaison services.",
       status: "VERIFIED_ACCESSIBLE",
       adaFeatures: ["ADA Compliant Ramp", "Automatic Power Doors", "Accessible Elevators", "ASL Interpreters by Request"]
@@ -135,8 +146,10 @@ export function getCivicOffices() {
       type: "MUNICIPAL",
       lat: 38.8915,
       lng: -77.0145,
+      staticY: 660,
+      staticX: 280,
       address: "2000 14th St NW, Civic Maintenance Center",
-      phone: "(202) 673-6833",
+      phone: "(954) 673-6833",
       services: "Sidewalk repair scheduling, curb cut installation, street signal maintenance.",
       status: "VERIFIED_ACCESSIBLE",
       adaFeatures: ["Zero-Step Entrance", "Braille Signage", "Wheelchair Accessible Service Counters"]
@@ -147,8 +160,10 @@ export function getCivicOffices() {
       type: "COMMUNITY",
       lat: 38.8872,
       lng: -77.0068,
+      staticY: 480,
+      staticX: 420,
       address: "500 C St SE, U.S. Civic Center Suite 104",
-      phone: "(202) 727-6789",
+      phone: "(954) 727-6789",
       services: "ADA compliance enforcement, legal counseling, civic accessibility audits.",
       status: "VERIFIED_ACCESSIBLE",
       adaFeatures: ["Full Wheelchair Accessibility", "Hearing Loop Installed", "Braille & Large Print Materials"]
@@ -159,8 +174,10 @@ export function getCivicOffices() {
       type: "COMMUNITY",
       lat: 38.8922,
       lng: -77.0030,
+      staticY: 780,
+      staticX: 300,
       address: "901 G St NW, Central Library Building",
-      phone: "(202) 727-0321",
+      phone: "(954) 727-0321",
       services: "Assistive technology lab, public Wi-Fi, accessible meeting rooms for community task forces.",
       status: "VERIFIED_ACCESSIBLE",
       adaFeatures: ["Tactile Paving", "Elevator Voice Prompts", "Adjustable Height Computer Desks"]
@@ -171,8 +188,10 @@ export function getCivicOffices() {
       type: "TRANSIT",
       lat: 38.8859,
       lng: -77.0112,
+      staticY: 520,
+      staticX: 680,
       address: "600 5th St NW, Transit Access HQ",
-      phone: "(202) 962-1234",
+      phone: "(954) 962-1234",
       services: "Paratransit registration, elevator outage reports, accessible transit route mapping.",
       status: "VERIFIED_ACCESSIBLE",
       adaFeatures: ["Level Entry Transit Bay", "Audio-Visual Information Kiosks", "Dedicated Accessibility Concierge"]
@@ -181,39 +200,55 @@ export function getCivicOffices() {
 }
 
 /**
- * Load reports from LocalStorage or initialize with sample demo data.
- * @returns {Array<Object>}
+ * ============================================================================
+ * WEB STORAGE API (LOCALSTORAGE) PERSISTENCE ENGINE
+ * ============================================================================
  */
-function getLocalReports() {
+
+/**
+ * Retrieves persistent report data from localStorage every time the app is opened.
+ * Ensures user-created map markers and descriptions remain persistent across sessions.
+ *
+ * @returns {Array<Object>} Persistent reports array
+ */
+export function loadReportsFromStorage() {
   try {
-    const rawData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!rawData) {
+    const rawJSON = localStorage.getItem(WEB_STORAGE_KEY);
+    if (!rawJSON) {
+      console.info("ℹ️ [WebStorageAPI] No existing storage found in browser; initializing with sample reports.");
       const samples = getInitialSampleReports();
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(samples));
+      localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(samples));
       return samples;
     }
-    return JSON.parse(rawData);
+    const parsed = JSON.parse(rawJSON);
+    console.log(`📂 [WebStorageAPI] Successfully loaded ${parsed.length} report(s) from localStorage.`);
+    return parsed;
   } catch (err) {
-    console.warn("⚠️ Error reading LocalStorage, falling back to memory:", err);
+    console.warn("⚠️ [WebStorageAPI] Error reading localStorage; falling back to sample reports:", err);
     return getInitialSampleReports();
   }
 }
 
 /**
- * Save reports array to LocalStorage and notify all subscribers.
- * @param {Array<Object>} reports
+ * Serializes user-created map markers and descriptions into a local JSON string
+ * on the user's browser using `localStorage.setItem()`.
+ * Replaces Firebase push/update operations.
+ *
+ * @param {Array<Object>} reportsArray - Updated reports array
  */
-function saveLocalReports(reports) {
+export function saveReportsToStorage(reportsArray = []) {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reports));
+    const jsonString = JSON.stringify(reportsArray);
+    localStorage.setItem(WEB_STORAGE_KEY, jsonString);
+    console.log(`💾 [WebStorageAPI] Successfully persisted ${reportsArray.length} report(s) to localStorage.`);
   } catch (err) {
-    console.warn("⚠️ Error writing LocalStorage:", err);
+    console.warn("⚠️ [WebStorageAPI] Error writing to localStorage:", err);
   }
-  notifySubscribers(reports);
+  notifySubscribers(reportsArray);
 }
 
 /**
- * Notify all registered listener callbacks with the latest reports list.
+ * Notify all registered listener callbacks with the latest sorted reports list.
  * @param {Array<Object>} reports
  */
 function notifySubscribers(reports) {
@@ -229,154 +264,43 @@ function notifySubscribers(reports) {
 
 /**
  * ============================================================================
- * OFFLINE QUEUE METHODS (PWA RESILIENCE IN ZERO-CELL-SERVICE DEAD ZONES)
- * ============================================================================
- */
-function getOfflineQueue() {
-  try {
-    const data = localStorage.getItem(OFFLINE_QUEUE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (err) {
-    return [];
-  }
-}
-
-function saveOfflineQueue(queue) {
-  try {
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-  } catch (err) {
-    console.warn("⚠️ Error saving offline queue:", err);
-  }
-}
-
-/**
- * Enqueue a report submitted while offline in the field.
- * @param {Object} report
- */
-function enqueueOfflineReport(report) {
-  const queue = getOfflineQueue();
-  const queuedReport = {
-    ...report,
-    id: "offline_rep_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-    isOfflineQueued: true
-  };
-  queue.push(queuedReport);
-  saveOfflineQueue(queue);
-
-  // Also reflect in local reports so field user sees their pin immediately
-  const localReports = getLocalReports();
-  localReports.push(queuedReport);
-  saveLocalReports(localReports);
-
-  return queuedReport;
-}
-
-/**
- * Flush any queued offline reports to Firebase when network connection is restored.
- * @returns {Promise<number>} Number of reports successfully synced
- */
-export async function syncOfflineQueue() {
-  const queue = getOfflineQueue();
-  if (queue.length === 0 || !navigator.onLine) {
-    return 0;
-  }
-
-  let syncedCount = 0;
-
-  if (isLiveFirebaseConfigured && db) {
-    const reportsRef = ref(db, "reports");
-    const remainingQueue = [];
-
-    for (const item of queue) {
-      try {
-        const payload = { ...item };
-        delete payload.id;
-        delete payload.isOfflineQueued;
-        await push(reportsRef, payload);
-        syncedCount++;
-      } catch (err) {
-        console.warn("Failed to sync offline report item:", err);
-        remainingQueue.push(item);
-      }
-    }
-
-    saveOfflineQueue(remainingQueue);
-    if (syncedCount > 0) {
-      console.log(`📡 [OfflineSync] Successfully flushed ${syncedCount} queued report(s) to Firebase!`);
-    }
-  }
-
-  return syncedCount;
-}
-
-/**
- * ============================================================================
- * PUBLIC SERVICE METHODS (API LAYER)
+ * PUBLIC SERVICE METHODS (API LAYER REPLACEMENT)
  * ============================================================================
  */
 
 /**
- * Subscribe to real-time report updates from Firebase Realtime Database
- * (or local demo database).
+ * Replaces Firebase onValue() by loading reports from localStorage when the app
+ * opens and subscribing to local storage state mutations.
  *
  * @param {Function} callback - Function called with an array of AccessibilityReport
  * @returns {Function} Unsubscribe function
  */
 export function subscribeToReports(callback) {
   subscribers.add(callback);
+  const currentReports = loadReportsFromStorage();
+  notifySubscribers(currentReports);
 
-  if (isLiveFirebaseConfigured && db) {
-    const reportsRef = ref(db, "reports");
-    
-    const unsubscribeFirebase = onValue(
-      reportsRef,
-      (snapshot) => {
-        const data = snapshot.val();
-        const reportsArray = [];
-
-        if (data) {
-          Object.keys(data).forEach((key) => {
-            reportsArray.push({
-              id: key,
-              ...data[key]
-            });
-          });
-        }
-
-        notifySubscribers(reportsArray);
-      },
-      (error) => {
-        console.error("❌ [Firebase Error] Failed to read reports:", error);
-      }
-    );
-
-    return () => {
-      subscribers.delete(callback);
-      unsubscribeFirebase();
-    };
-  } else {
-    const initialReports = getLocalReports();
-    notifySubscribers(initialReports);
-
-    return () => {
-      subscribers.delete(callback);
-    };
-  }
+  return () => {
+    subscribers.delete(callback);
+  };
 }
 
 /**
- * Submit a new accessibility barrier report with rigorous cybersecurity hardening
- * and PWA offline queue resilience.
+ * Submit a new accessibility barrier report and save it directly to the
+ * browser's Web Storage API (localStorage) as a persistent JSON string.
+ * Replaces Firebase push().
  *
  * @param {Object} formData
  * @returns {Promise<Object>} The newly created report object
  */
 export async function addReport(formData) {
-  const rateCheck = checkRateLimit("report_submit", 15);
+  // 1. Check client-side anti-spam rate limit
+  const rateCheck = checkRateLimit("report_submit", 10);
   if (!rateCheck.allowed) {
     throw new Error(`⏳ Anti-Spam Rate Limit: Please wait ${rateCheck.remainingSeconds} seconds before submitting another report.`);
   }
 
+  // 2. Schema validation
   const validation = validateReportInput(formData);
   if (!validation.isValid || !validation.sanitizedData) {
     throw new Error(`⚠️ Validation Error: ${validation.errors.join(" ")}`);
@@ -384,85 +308,82 @@ export async function addReport(formData) {
 
   const newReport = validation.sanitizedData;
 
-  // PWA OFFLINE FIELD CHECK: If browser is offline, store in offline queue
-  if (!navigator.onLine) {
-    console.info("📡 [Offline Mode] Device is offline. Enqueuing barrier report locally.");
-    const queued = enqueueOfflineReport(newReport);
-    return { ...queued, wasOfflineSaved: true };
+  // 3. Ensure both Geographical and Static Image coordinates are recorded
+  const lat = Number(newReport.lat);
+  const lng = Number(newReport.lng);
+
+  // Calculate static image Cartesian Y,X (0..1000) for Self-Contained Static District Map Mode
+  let staticY = formData.staticY ? Number(formData.staticY) : 500;
+  let staticX = formData.staticX ? Number(formData.staticX) : 500;
+
+  if (!formData.staticY && !formData.staticX && Number.isFinite(lat) && Number.isFinite(lng)) {
+    // Map latitude/longitude onto static district image grid
+    staticY = Math.min(Math.max(Math.round(((lat - 38.88) / 0.02) * 1000), 50), 950);
+    staticX = Math.min(Math.max(Math.round(((lng + 77.02) / 0.03) * 1000), 50), 950);
   }
 
-  if (isLiveFirebaseConfigured && db) {
-    try {
-      const reportsRef = ref(db, "reports");
-      const newRef = await push(reportsRef, newReport);
-      return {
-        id: newRef.key,
-        ...newReport
-      };
-    } catch (err) {
-      console.warn("📡 [Firebase Error] Network write failed; saving to offline queue:", err);
-      const queued = enqueueOfflineReport(newReport);
-      return { ...queued, wasOfflineSaved: true };
-    }
-  } else {
-    const currentReports = getLocalReports();
-    const created = {
-      id: "rep_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-      ...newReport
-    };
-    currentReports.push(created);
-    saveLocalReports(currentReports);
-    return created;
-  }
+  // Generate unique client-side ID replacing Firebase chronological push key
+  const created = {
+    id: "rep_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
+    ...newReport,
+    staticY,
+    staticX
+  };
+
+  // 4. Save user-created map marker and description into local JSON string via Web Storage API
+  const currentReports = loadReportsFromStorage();
+  currentReports.push(created);
+  saveReportsToStorage(currentReports);
+
+  return created;
 }
 
 /**
- * Upvote / confirm an accessibility barrier report.
+ * Upvote / confirm an accessibility barrier report in localStorage.
  *
  * @param {string} reportId
  * @param {number} currentUpvotes
  * @returns {Promise<number>} New upvote count
  */
 export async function upvoteReport(reportId, currentUpvotes = 0) {
-  const newCount = currentUpvotes + 1;
-
-  if (isLiveFirebaseConfigured && db && navigator.onLine) {
-    const reportRef = ref(db, `reports/${reportId}`);
-    await update(reportRef, { upvotes: newCount });
-    return newCount;
-  } else {
-    const currentReports = getLocalReports();
-    const target = currentReports.find((r) => r.id === reportId);
-    if (target) {
-      target.upvotes = (target.upvotes || 0) + 1;
-      saveLocalReports(currentReports);
-      return target.upvotes;
-    }
-    return newCount;
+  const currentReports = loadReportsFromStorage();
+  const target = currentReports.find((r) => r.id === reportId);
+  if (target) {
+    target.upvotes = (target.upvotes || 0) + 1;
+    saveReportsToStorage(currentReports);
+    return target.upvotes;
   }
+  return currentUpvotes + 1;
 }
 
 /**
- * Mark a barrier report as RESOLVED.
+ * Mark a barrier report as RESOLVED in localStorage.
  *
  * @param {string} reportId
  * @returns {Promise<boolean>}
  */
 export async function resolveReport(reportId) {
-  if (isLiveFirebaseConfigured && db && navigator.onLine) {
-    const reportRef = ref(db, `reports/${reportId}`);
-    await update(reportRef, { status: "RESOLVED" });
+  const currentReports = loadReportsFromStorage();
+  const target = currentReports.find((r) => r.id === reportId);
+  if (target) {
+    target.status = "RESOLVED";
+    saveReportsToStorage(currentReports);
     return true;
-  } else {
-    const currentReports = getLocalReports();
-    const target = currentReports.find((r) => r.id === reportId);
-    if (target) {
-      target.status = "RESOLVED";
-      saveLocalReports(currentReports);
-      return true;
-    }
-    return false;
   }
+  return false;
+}
+
+/**
+ * Delete a report from localStorage.
+ *
+ * @param {string} reportId
+ * @returns {Promise<boolean>}
+ */
+export async function deleteReport(reportId) {
+  const currentReports = loadReportsFromStorage();
+  const filtered = currentReports.filter((r) => r.id !== reportId);
+  saveReportsToStorage(filtered);
+  return true;
 }
 
 /**
@@ -470,7 +391,7 @@ export async function resolveReport(reportId) {
  */
 export function resetDemoData() {
   const samples = getInitialSampleReports();
-  saveLocalReports(samples);
+  saveReportsToStorage(samples);
   console.log("🔄 Demo data has been reset to original 5 sample reports.");
 }
 
@@ -491,8 +412,10 @@ export function exportReportsToCSV(reports = []) {
     "Barrier Category",
     "Urgency / Severity",
     "Resolution Status",
-    "Latitude",
-    "Longitude",
+    "Latitude (Geographical)",
+    "Longitude (Geographical)",
+    "Cartesian Y (Static Map)",
+    "Cartesian X (Static Map)",
     "Detailed Description",
     "Citizen Confirmations (Upvotes)",
     "Date Reported (ISO 8601)",
@@ -518,6 +441,8 @@ export function exportReportsToCSV(reports = []) {
       r.status || "OPEN",
       r.lat,
       r.lng,
+      r.staticY || 500,
+      r.staticX || 500,
       r.description,
       r.upvotes || 1,
       isoDate,

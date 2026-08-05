@@ -163,23 +163,26 @@ function runBuild() {
     }
   }
 
-  // 5. Process index.html
-  const htmlSrcPath = path.join(ROOT_DIR, "index.html");
-  if (fs.existsSync(htmlSrcPath)) {
-    const rawHTML = fs.readFileSync(htmlSrcPath, "utf8");
-    const minHTML = minifyHTML(rawHTML);
-    fs.writeFileSync(path.join(DIST_DIR, "index.html"), minHTML, "utf8");
+  // 5. Process HTML files (`index.html`, `static-map-demo.html`)
+  const htmlFiles = ["index.html", "static-map-demo.html"];
+  for (const htmlFile of htmlFiles) {
+    const htmlSrcPath = path.join(ROOT_DIR, htmlFile);
+    if (fs.existsSync(htmlSrcPath)) {
+      const rawHTML = fs.readFileSync(htmlSrcPath, "utf8");
+      const minHTML = minifyHTML(rawHTML);
+      fs.writeFileSync(path.join(DIST_DIR, htmlFile), minHTML, "utf8");
 
-    const origSize = Buffer.byteLength(rawHTML, "utf8");
-    const minSize = Buffer.byteLength(minHTML, "utf8");
-    const saved = ((1 - minSize / origSize) * 100).toFixed(1);
+      const origSize = Buffer.byteLength(rawHTML, "utf8");
+      const minSize = Buffer.byteLength(minHTML, "utf8");
+      const saved = ((1 - minSize / origSize) * 100).toFixed(1);
 
-    stats.push({
-      file: "index.html",
-      origKB: (origSize / 1024).toFixed(2) + " KB",
-      minKB: (minSize / 1024).toFixed(2) + " KB",
-      savings: `${saved}%`
-    });
+      stats.push({
+        file: htmlFile,
+        origKB: (origSize / 1024).toFixed(2) + " KB",
+        minKB: (minSize / 1024).toFixed(2) + " KB",
+        savings: `${saved}%`
+      });
+    }
   }
 
   // 6. Copy Markdown & project documentation to dist

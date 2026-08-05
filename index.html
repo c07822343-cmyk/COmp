@@ -95,11 +95,19 @@
     <div class="header-actions">
       <!-- Database Connection Status Badge -->
       <div id="db-status-badge" class="status-badge demo-mode" role="status" 
-           title="Shows whether connected to live Firebase Realtime Database or Local Demo Database"
+           title="Shows persistence status via browser Web Storage API (localStorage)"
            aria-live="polite">
         <span class="status-dot"></span>
-        <span class="status-text">Demo Mode (Local Storage)</span>
+        <span class="status-text">LocalStorage Active</span>
       </div>
+
+      <!-- Map Mode Switcher: Live OSM vs Self-Contained Static District Image Coordinate System -->
+      <button type="button" id="btn-switch-map-mode" class="btn btn-secondary" 
+              title="Switch between Live OpenStreetMap view and Self-Contained Static District Map Coordinate System (L.CRS.Simple)" 
+              aria-label="Switch between live map and static district map coordinate system">
+        <span aria-hidden="true">🖼️</span>
+        <span id="map-mode-label">Static Map Mode</span>
+      </button>
 
       <!-- PWA Standalone Install Button (Hidden until browser fires beforeinstallprompt) -->
       <button type="button" id="btn-install-pwa" class="btn btn-secondary hidden" 
@@ -416,7 +424,7 @@
         </div>
         <p class="footnote">
           Built for the <strong>Congressional App Challenge</strong> &bull; 
-          Powered by Leaflet.js, OpenStreetMap &amp; Firebase Realtime DB.
+          100% Client-Side Web Storage API &amp; Leaflet L.CRS.Simple.
         </p>
       </footer>
     </aside>
@@ -623,7 +631,7 @@
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
           crossorigin="anonymous"></script>
 
-  <!-- Main Application Script (ES Module - imports Firebase Modular SDK) -->
+  <!-- Main Application Script (ES Module) -->
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%" style="background:#0a2540;">
+  <defs>
+    <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+      <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(212,175,55,0.18)" stroke-width="1.5"/>
+    </pattern>
+    <linearGradient id="districtGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#002868"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Coordinate Grid -->
+  <rect width="1000" height="1000" fill="url(#grid)" />
+
+  <!-- District Border (FL-23 Representative Area Outline) -->
+  <path d="M 150,150 L 850,120 L 920,400 L 880,850 L 250,880 L 100,550 Z" 
+        fill="url(#districtGradient)" stroke="#d4af37" stroke-width="5" stroke-dasharray="10,5" opacity="0.95" />
+
+  <!-- Major Highway & Street Arterials -->
+  <path d="M 200,100 L 250,900" stroke="rgba(255,255,255,0.25)" stroke-width="4" fill="none" />
+  <path d="M 500,80 L 550,920" stroke="rgba(255,255,255,0.4)" stroke-width="6" fill="none" />
+  <path d="M 800,120 L 780,880" stroke="rgba(255,255,255,0.25)" stroke-width="4" fill="none" />
+  <path d="M 120,300 L 900,280" stroke="rgba(255,255,255,0.25)" stroke-width="4" fill="none" />
+  <path d="M 100,600 L 880,620" stroke="rgba(255,255,255,0.25)" stroke-width="4" fill="none" />
+
+  <!-- Landmark Cities & Labels (Florida 23rd District) -->
+  <circle cx="680" cy="220" r="10" fill="#ffff00" stroke="#000" stroke-width="2" />
+  <text x="700" y="226" fill="#ffffff" font-size="24" font-family="sans-serif" font-weight="bold">Boca Raton</text>
+
+  <circle cx="720" cy="650" r="12" fill="#ffff00" stroke="#000" stroke-width="2" />
+  <text x="740" y="658" fill="#ffffff" font-size="26" font-family="sans-serif" font-weight="bold">Fort Lauderdale</text>
+
+  <circle cx="450" cy="380" r="8" fill="#d4af37" stroke="#000" stroke-width="2" />
+  <text x="470" y="386" fill="#ffffff" font-size="20" font-family="sans-serif" font-weight="bold">Coral Springs</text>
+
+  <circle cx="600" cy="450" r="8" fill="#d4af37" stroke="#000" stroke-width="2" />
+  <text x="620" y="456" fill="#ffffff" font-size="20" font-family="sans-serif" font-weight="bold">Pompano Beach</text>
+
+  <!-- Title Badge on Map -->
+  <rect x="35" y="35" width="410" height="75" rx="10" fill="rgba(0,40,104,0.9)" stroke="#d4af37" stroke-width="2" />
+  <text x="55" y="68" fill="#ffff00" font-size="22" font-family="sans-serif" font-weight="bold">FLORIDA 23RD CONGRESSIONAL DISTRICT</text>
+  <text x="55" y="93" fill="#ffffff" font-size="16" font-family="sans-serif">Self-Contained Cartesian Coordinate Map (L.CRS.Simple)</text>
+</svg>

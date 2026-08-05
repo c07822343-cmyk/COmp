@@ -1,36 +1,31 @@
 /**
  * ============================================================================
- * ACCESSYOURDISTRICT - MAP CONTROLLER (LEAFLET.JS & OPENSTREETMAP)
+ * ACCESSYOURDISTRICT - MAP CONTROLLER (OSM & SELF-CONTAINED STATIC MAP MODE)
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC, A11Y & MAP ARCHITECTURE EXPLANATION:
+ * SENIOR WEB DEVELOPER ARCHITECTURE EXPLANATION:
  * ----------------------------------------------
- * 1. OpenStreetMap Tile Layer API:
- *    - Uses free, crowdsourced OpenStreetMap tile servers (`tile.openstreetmap.org`)
- *      to render interactive street maps without commercial API keys.
+ * 1. Self-Contained Static Map Coordinate System (`L.CRS.Simple`):
+ *    - Instead of relying on a live tile API, this app supports a self-contained
+ *      static image coordinate system using `L.CRS.Simple`.
+ *    - A static vector image of the Congressional District (`district-map-static.svg`)
+ *      is mapped to a Cartesian coordinate grid from `[0, 0]` to `[1000, 1000]`.
+ *    - Interactive HTML `<div class="custom-pin-icon">` elements are placed
+ *      precisely at those Cartesian `(Y, X)` coordinates as persistent pins!
  *
- * 2. Marker Data Structure & Dictionary Indexing:
- *    - To maintain smooth performance when real-time updates arrive from
- *      Firebase, we store active Leaflet markers in a JavaScript Map:
- *      `markerMap = new Map<reportId, L.Marker>()`.
- *    - This achieves O(1) lookup time to add, update, or remove individual
- *      markers without re-rendering the entire layer.
+ * 2. Map Mode Switcher (`this.mapMode`):
+ *    - Visitors can toggle between `'OSM'` (Live OpenStreetMap WGS84 GPS view)
+ *      and `'STATIC_IMAGE'` (Self-Contained Cartesian Static District Map view).
  *
  * 3. Screen Reader ARIA Labels & Keyboard Accessibility:
  *    - Every map marker icon DOM element is decorated with `role="button"`,
  *      `tabindex="0"`, and descriptive `aria-label` attributes.
- *    - Keyboard users can Tab through pins and press Enter/Space to open popups.
- *
- * 4. Geolocation & Interactive Reporting Mode:
- *    - Leverages HTML5 Geolocation API (`navigator.geolocation`) to automatically
- *      center on the citizen's actual congressional district when the app opens.
  * ============================================================================
  */
 
 import { escapeHTML } from "./security-utils.js";
 
-// Category Metadata Mapping (Icons & Labels for Badges)
 const CATEGORY_META = {
   RAMP:     { label: "Broken Ramp", icon: "♿", color: "#0d47a1" },
   SIDEWALK: { label: "Blocked Sidewalk", icon: "🚧", color: "#b45309" },
@@ -40,17 +35,19 @@ const CATEGORY_META = {
   OTHER:    { label: "Other Barrier", icon: "📌", color: "#475569" }
 };
 
-// Default map view: representative Capitol Hill / congressional district area
 const DEFAULT_CENTER = [38.8895, -77.0089];
 const DEFAULT_ZOOM = 15;
+
+const STATIC_BOUNDS = [[0, 0], [1000, 1000]];
+const STATIC_CENTER = [500, 500];
 
 export class MapController {
   /**
    * @param {string} containerId - DOM ID of map container
    * @param {Object} options
-   * @param {Function} options.onReportClick - Callback when user clicks map in Reporting Mode
-   * @param {Function} options.onMarkerDetailsClick - Callback when user clicks "View Details" on a pin
-   * @param {Function} [options.onCivicOfficeClick] - Callback when user clicks a civic office marker
+   * @param {Function} options.onReportClick
+   * @param {Function} options.onMarkerDetailsClick
+   * @param {Function} [options.onCivicOfficeClick]
    */
   constructor(containerId, { onReportClick, onMarkerDetailsClick, onCivicOfficeClick }) {
     this.containerId = containerId;
@@ -60,6 +57,15 @@ export class MapController {
 
     /** @type {L.Map} */
     this.map = null;
+
+    /** @type {string} - "OSM" | "STATIC_IMAGE" */
+    this.mapMode = "OSM";
+
+    /** @type {L.TileLayer|null} */
+    this.tileLayer = null;
+
+    /** @type {L.ImageOverlay|null} */
+    this.imageOverlay = null;
 
     /** @type {L.LayerGroup} */
     this.markerLayer = null;
@@ -84,10 +90,9 @@ export class MapController {
   }
 
   /**
-   * Initialize the Leaflet map and attach tile layer & event listeners.
+   * Initialize the Leaflet map in default OSM mode.
    */
   init() {
-    // 1. Initialize Leaflet Map
     this.map = L.map(this.containerId, {
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
@@ -95,20 +100,57 @@ export class MapController {
       attributionControl: true
     });
 
-    // 2. Add free OpenStreetMap Standard Tile Layer
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    this.tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &bull; <strong>AccessYourDistrict</strong>'
     }).addTo(this.map);
 
-    // 3. Create layer groups for barrier reports and civic directory offices
     this.markerLayer = L.layerGroup().addTo(this.map);
     this.civicLayer = L.layerGroup().addTo(this.map);
 
-    // 4. Attach Map Click Handler for Reporting Mode
     this.map.on("click", (event) => this.handleMapClick(event));
 
-    console.log("✅ [MapController] Leaflet map initialized successfully.");
+    console.log("✅ [MapController] Leaflet map initialized successfully in OSM mode.");
+  }
+
+  /**
+   * Switch between Live OSM Tile mode and Self-Contained Static District Map mode (`L.CRS.Simple`).
+   * @param {string} nextMode - "OSM" | "STATIC_IMAGE"
+   */
+  switchMapMode(nextMode) {
+    if (nextMode === this.mapMode) return;
+    this.mapMode = nextMode;
+
+    // Destroy existing map instance to cleanly reconfigure CRS
+    if (this.map) {
+      this.map.remove();
+      this.markerMap.clear();
+      this.civicMarkerMap.clear();
+      this.userLocationMarker = null;
+    }
+
+    if (nextMode === "STATIC_IMAGE") {
+      // SELF-CONTAINED STATIC DISTRICT MAP COORDINATE SYSTEM (`L.CRS.Simple`)
+      this.map = L.map(this.containerId, {
+        crs: L.CRS.Simple,
+        minZoom: -1,
+        maxZoom: 3,
+        zoomControl: true,
+        attributionControl: true
+      });
+
+      this.imageOverlay = L.imageOverlay("./assets/images/district-map-static.svg", STATIC_BOUNDS).addTo(this.map);
+      this.map.setView(STATIC_CENTER, 0);
+
+      this.markerLayer = L.layerGroup().addTo(this.map);
+      this.civicLayer = L.layerGroup().addTo(this.map);
+
+      this.map.on("click", (event) => this.handleMapClick(event));
+      console.log("🖼️ [MapController] Activated Self-Contained Static District Map Coordinate System (L.CRS.Simple: 0..1000).");
+    } else {
+      // STANDARD LIVE OSM GEOGRAPHICAL MODE
+      this.init();
+    }
   }
 
   /**
@@ -117,17 +159,21 @@ export class MapController {
    */
   handleMapClick(event) {
     if (!this.isReportingMode) {
-      return; // Normal navigation mode
+      return;
     }
 
-    const { lat, lng } = event.latlng;
+    let { lat, lng } = event.latlng;
     
-    // Show temporary pulsing pin where user clicked
+    // In Static Map Mode, coordinates are Cartesian (Y, X) within 0..1000
+    if (this.mapMode === "STATIC_IMAGE") {
+      lat = Math.min(Math.max(Math.round(lat), 0), 1000);
+      lng = Math.min(Math.max(Math.round(lng), 0), 1000);
+    }
+
     this.setDraftMarker(lat, lng);
 
-    // Notify application to open reporting modal with lat/lng
     if (typeof this.onReportClick === "function") {
-      this.onReportClick(lat, lng);
+      this.onReportClick(lat, lng, this.mapMode);
     }
   }
 
@@ -180,12 +226,18 @@ export class MapController {
 
   /**
    * Center map on user's actual congressional district using Geolocation API.
-   * Places a visual "You Are Here" pin when successful.
+   * Only active in OSM Geographical Mode.
    *
    * @param {Function} onSuccess
    * @param {Function} onError
    */
   locateUserDistrict(onSuccess, onError) {
+    if (this.mapMode === "STATIC_IMAGE") {
+      this.map.setView(STATIC_CENTER, 0, { animate: true });
+      if (onSuccess) onSuccess({ latitude: 500, longitude: 500, mode: "STATIC_IMAGE" });
+      return;
+    }
+
     if (!navigator.geolocation) {
       if (onError) onError("Geolocation is not supported by your browser.");
       return;
@@ -196,7 +248,6 @@ export class MapController {
         const { latitude, longitude } = position.coords;
         this.map.setView([latitude, longitude], 15, { animate: true });
 
-        // Place a distinct blue "You Are Here" pulsing marker
         if (this.userLocationMarker) {
           this.userLocationMarker.setLatLng([latitude, longitude]);
         } else {
@@ -228,7 +279,6 @@ export class MapController {
       },
       (error) => {
         console.warn("Geolocation permission denied or unavailable:", error.message);
-        // Fallback to default district center
         this.map.setView(DEFAULT_CENTER, DEFAULT_ZOOM, { animate: true });
         if (onError) onError(error.message);
       },
@@ -243,7 +293,7 @@ export class MapController {
    * @param {string} reportId
    */
   focusOnReport(lat, lng, reportId) {
-    this.map.setView([lat, lng], 17, { animate: true });
+    this.map.setView([lat, lng], this.mapMode === "STATIC_IMAGE" ? 1 : 17, { animate: true });
 
     const marker = this.markerMap.get(reportId);
     if (marker) {
@@ -258,7 +308,7 @@ export class MapController {
    * @param {string} officeId
    */
   focusOnCivicOffice(lat, lng, officeId) {
-    this.map.setView([lat, lng], 17, { animate: true });
+    this.map.setView([lat, lng], this.mapMode === "STATIC_IMAGE" ? 1 : 17, { animate: true });
 
     const marker = this.civicMarkerMap.get(officeId);
     if (marker) {
@@ -294,7 +344,6 @@ export class MapController {
 
   /**
    * Build HTML content for the Leaflet Popup attached to each barrier marker.
-   * Employs escapeHTML() to neutralize script injection in popup rendering.
    * @param {Object} report
    * @returns {string} HTML string
    */
@@ -330,8 +379,7 @@ export class MapController {
 
   /**
    * Synchronize Leaflet map markers with the filtered reports array.
-   * Uses an O(1) Map dictionary to add, update, or remove markers smoothly.
-   * Decorates marker DOM elements with ARIA labels and keyboard listeners.
+   * Maps WGS84 coordinates in OSM mode or Cartesian (Y, X) coordinates in Static Map Mode.
    *
    * @param {Array<Object>} filteredReports
    */
@@ -341,6 +389,10 @@ export class MapController {
     for (const report of filteredReports) {
       activeIds.add(report.id);
 
+      // Determine map coordinate based on current mapMode
+      const lat = this.mapMode === "STATIC_IMAGE" ? (report.staticY || 500) : report.lat;
+      const lng = this.mapMode === "STATIC_IMAGE" ? (report.staticX || 500) : report.lng;
+
       const existingMarker = this.markerMap.get(report.id);
       const icon = this.buildPinIcon(report);
       const popupHtml = this.buildPopupHTML(report);
@@ -349,13 +401,13 @@ export class MapController {
       const ariaText = `Barrier Pin: ${safeTitle}, Category: ${meta.label}, Urgency: ${report.severity || 'MEDIUM'}, Status: ${report.status || 'OPEN'}. Press Enter or Space to open details popup.`;
 
       if (existingMarker) {
-        existingMarker.setLatLng([report.lat, report.lng]);
+        existingMarker.setLatLng([lat, lng]);
         existingMarker.setIcon(icon);
         existingMarker.setPopupContent(popupHtml);
         const el = existingMarker.getElement();
         if (el) el.setAttribute("aria-label", ariaText);
       } else {
-        const newMarker = L.marker([report.lat, report.lng], {
+        const newMarker = L.marker([lat, lng], {
           icon: icon,
           title: report.title,
           alt: ariaText
@@ -366,7 +418,6 @@ export class MapController {
           autoPan: true
         });
 
-        // Add ARIA attributes & keyboard accessibility after Leaflet renders marker icon
         newMarker.on("add", () => {
           const el = newMarker.getElement();
           if (el) {
@@ -396,14 +447,11 @@ export class MapController {
   }
 
   /**
-   * ============================================================================
-   * CIVIC RESOURCE LAYER (GOVERNMENT & CONGRESSIONAL DIRECTORY)
-   * ============================================================================
    * Render official municipal and congressional offices on the map with a
    * green 'Verified Accessible' badge (`🏛️`).
    *
-   * @param {Array<Object>} civicOffices - Array of CivicOffice records
-   * @param {boolean} [visible=true] - Whether the civic layer is visible
+   * @param {Array<Object>} civicOffices
+   * @param {boolean} [visible=true]
    */
   syncCivicOffices(civicOffices, visible = true) {
     if (!visible) {
@@ -416,6 +464,9 @@ export class MapController {
 
     for (const office of civicOffices) {
       activeIds.add(office.id);
+
+      const lat = this.mapMode === "STATIC_IMAGE" ? (office.staticY || 500) : office.lat;
+      const lng = this.mapMode === "STATIC_IMAGE" ? (office.staticX || 500) : office.lng;
 
       const existingMarker = this.civicMarkerMap.get(office.id);
       const safeName = escapeHTML(office.name);
@@ -470,13 +521,13 @@ export class MapController {
       `;
 
       if (existingMarker) {
-        existingMarker.setLatLng([office.lat, office.lng]);
+        existingMarker.setLatLng([lat, lng]);
         existingMarker.setIcon(icon);
         existingMarker.setPopupContent(popupHtml);
         const el = existingMarker.getElement();
         if (el) el.setAttribute("aria-label", ariaText);
       } else {
-        const newMarker = L.marker([office.lat, office.lng], {
+        const newMarker = L.marker([lat, lng], {
           icon: icon,
           title: office.name,
           zIndexOffset: 500,

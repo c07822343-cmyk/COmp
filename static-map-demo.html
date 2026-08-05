@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AccessYourDistrict — Zero-Library Static Map Coordinate System Demo</title>
+  <style>
+    :root {
+      --primary: #0d47a1;
+      --gold: #d4af37;
+      --bg: #f8fafc;
+      --text: #090d16;
+      --card: #ffffff;
+      --border: #cbd5e1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #0a2540 0%, #002868 100%);
+      color: #ffffff;
+      padding: 1.25rem 1.75rem;
+      border-bottom: 3px solid var(--gold);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .title h1 { font-size: 1.35rem; font-weight: 900; }
+    .title p { font-size: 0.85rem; color: #fef08a; margin-top: 0.2rem; }
+    .actions { display: flex; gap: 0.75rem; }
+    .btn {
+      padding: 0.55rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border-radius: 6px;
+      border: 2px solid var(--gold);
+      background: #0d47a1;
+      color: #ffffff;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn:hover { background: var(--gold); color: #000000; }
+    .btn-secondary { background: #ffffff; color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { background: #e2e8f0; }
+    
+    /* Self-Contained Static Map Coordinate Container */
+    .map-section {
+      padding: 1.5rem;
+      position: relative;
+    }
+    .instruction {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 1rem;
+    }
+    .map-viewport {
+      position: relative;
+      width: 100%;
+      height: 650px;
+      border: 3px solid #002868;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: crosshair;
+      background: #0a2540;
+      user-select: none;
+    }
+    .map-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    /* Interactive Pin DIVs */
+    .static-pin {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      transform: translate(-50%, -100%);
+      background: #b91c1c;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      z-index: 100;
+      transition: transform 0.15s ease;
+    }
+    .static-pin:hover {
+      transform: translate(-50%, -100%) scale(1.25);
+    }
+    .static-pin.category-RAMP { background: #0d47a1; }
+    .static-pin.category-SIDEWALK { background: #b45309; }
+    .static-pin.category-TACTILE { background: #6b21a8; }
+    .static-pin.category-SIGNAL { background: #047857; }
+
+    /* Pin Tooltip Card */
+    .pin-tooltip {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ffffff;
+      color: var(--text);
+      border: 2px solid #002868;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      width: 240px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+      z-index: 200;
+      display: none;
+      pointer-events: none;
+      font-size: 0.8rem;
+    }
+    .static-pin:hover .pin-tooltip {
+      display: block;
+    }
+    .pin-tooltip h4 { font-weight: 800; font-size: 0.9rem; margin-bottom: 0.25rem; color: #0d47a1; }
+    .pin-tooltip p { color: #475569; margin-bottom: 0.25rem; }
+
+    /* Modal dialog */
+    dialog {
+      border: none;
+      border-radius: 12px;
+      padding: 1.5rem;
+      max-width: 460px;
+      width: 90%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      border: 2px solid var(--border);
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px); }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-weight: 700; font-size: 0.85rem; margin-bottom: 0.3rem; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 0.6rem; font-size: 0.9rem;
+      border: 2px solid var(--border); border-radius: 6px;
+    }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="title">
+        <h1>AccessYourDistrict — Standalone Zero-Library Static Image Coordinate Map</h1>
+        <p>100% Client-Side HTML5, CSS3 &amp; Web Storage API (localStorage) Demonstration</p>
+      </div>
+      <div class="actions">
+        <button id="btn-reset" class="btn btn-secondary">Reset Sample Pins</button>
+        <a href="./index.html" class="btn">Return to Full SPA</a>
+      </div>
+    </header>
+
+    <section class="map-section">
+      <p class="instruction">
+        📍 <strong>Click anywhere on the static Congressional District map below</strong> to calculate percentage-based Cartesian coordinates (<code>X%, Y%</code>) and place an interactive DIV pin saved in <code>localStorage</code>!
+      </p>
+
+      <div class="map-viewport" id="static-map-viewport" role="region" aria-label="Static image coordinate map of Florida 23rd Congressional District">
+        <img src="./assets/images/district-map-static.svg" alt="Florida 23rd Congressional District Vector Map" class="map-image" />
+        <!-- Interactive DIV Pins are rendered here by JavaScript -->
+      </div>
+    </section>
+  </div>
+
+  <!-- New Pin Modal Dialog -->
+  <dialog id="pin-modal">
+    <h3 style="margin-bottom:1rem; color:#002868;">Add New Static Pin</h3>
+    <form id="pin-form">
+      <div class="form-group">
+        <label for="pin-title">Location / Title *</label>
+        <input type="text" id="pin-title" required placeholder="e.g. Boca Raton Public Library Ramp" />
+      </div>
+      <div class="form-group">
+        <label for="pin-category">Issue Category *</label>
+        <select id="pin-category" required>
+          <option value="RAMP">♿ Broken Wheelchair Ramp</option>
+          <option value="SIDEWALK">🚧 Blocked Sidewalk</option>
+          <option value="TACTILE">🦯 Missing Tactile Paving</option>
+          <option value="SIGNAL">🔊 Defective Audible Signal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="pin-desc">Description *</label>
+        <textarea id="pin-desc" required rows="3" placeholder="Describe the accessibility barrier..."></textarea>
+      </div>
+      <input type="hidden" id="pin-x" />
+      <input type="hidden" id="pin-y" />
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn">Save Pin to LocalStorage</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY = "ayd_standalone_static_pins_v1";
+    const viewport = document.getElementById("static-map-viewport");
+    const modal = document.getElementById("pin-modal");
+    const form = document.getElementById("pin-form");
+
+    function getInitialSamples() {
+      return [
+        { id: "p1", title: "Boca Raton Library Curb Cut", category: "RAMP", desc: "Cracked curb cut lip.", x: 22.0, y: 68.0 },
+        { id: "p2", title: "Fort Lauderdale Transit Bay", category: "TACTILE", desc: "Missing truncated domes.", x: 65.0, y: 72.0 },
+        { id: "p3", title: "Coral Springs Walkway", category: "SIDEWALK", desc: "Obstructed by utility fencing.", x: 38.0, y: 45.0 }
+      ];
+    }
+
+    function loadPins() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (!data) {
+          const samples = getInitialSamples();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(samples));
+          return samples;
+        }
+        return JSON.parse(data);
+      } catch (err) {
+        return getInitialSamples();
+      }
+    }
+
+    function savePins(pins) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pins));
+      renderPins();
+    }
+
+    function renderPins() {
+      const pins = loadPins();
+      // Clear existing pins
+      viewport.querySelectorAll(".static-pin").forEach((p) => p.remove());
+
+      const icons = {
+        RAMP: "♿",
+        SIDEWALK: "🚧",
+        TACTILE: "🦯",
+        SIGNAL: "🔊"
+      };
+
+      for (const pin of pins) {
+        const el = document.createElement("div");
+        el.className = `static-pin category-${pin.category}`;
+        el.style.left = `${pin.x}%`;
+        el.style.top = `${pin.y}%`;
+        el.innerHTML = `
+          ${icons[pin.category] || "📍"}
+          <div class="pin-tooltip">
+            <h4>${pin.title}</h4>
+            <p><strong>Category:</strong> ${pin.category}</p>
+            <p>${pin.desc}</p>
+            <p style="font-size:0.7rem; color:#0d47a1; margin-top:4px;">
+              📍 Coordinate: (${pin.x}%, ${pin.y}%) in Web Storage
+            </p>
+          </div>
+        `;
+        viewport.appendChild(el);
+      }
+    }
+
+    viewport.addEventListener("click", (e) => {
+      // Calculate percentage coordinate (X%, Y%) relative to viewport
+      const rect = viewport.getBoundingClientRect();
+      const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+      const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+      document.getElementById("pin-x").value = xPercent.toFixed(2);
+      document.getElementById("pin-y").value = yPercent.toFixed(2);
+      form.reset();
+      modal.showModal();
+    });
+
+    document.getElementById("btn-cancel").addEventListener("click", () => modal.close());
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      savePins(getInitialSamples());
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = document.getElementById("pin-title").value.trim();
+      const category = document.getElementById("pin-category").value;
+      const desc = document.getElementById("pin-desc").value.trim();
+      const x = parseFloat(document.getElementById("pin-x").value);
+      const y = parseFloat(document.getElementById("pin-y").value);
+
+      const pins = loadPins();
+      pins.push({
+        id: "pin_" + Date.now(),
+        title,
+        category,
+        desc,
+        x,
+        y
+      });
+
+      savePins(pins);
+      modal.close();
+    });
+
+    renderPins();
+  </script>
+</body>
+</html>

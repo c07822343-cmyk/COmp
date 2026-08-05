@@ -6,16 +6,18 @@
 ## 📋 Table of Contents
 1. [Executive Summary & Purpose](#1-executive-summary--purpose)
 2. [Societal Use, District Info & Civic Resource Layer (Winning Legacy)](#2-societal-use-district-info--civic-resource-layer-winning-legacy)
-3. [Full-Stack Progressive Web App (PWA) & Offline Field Caching](#3-full-stack-progressive-web-app-pwa--offline-field-caching)
-4. [Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)](#4-cybersecurity--application-hardening-xss-schema-guard--anti-spam)
-5. [Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance](#5-web-accessibility-specialist-a11y--wcag-22-level-aaa-compliance)
-6. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#6-end-to-end-technical-data-flow-for-your-13-minute-video)
-7. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#7-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
-8. [Data Structures & Dynamic JSON District Binding](#8-data-structures--dynamic-json-district-binding)
-9. [API Calls & Real-Time Synchronization Logic](#9-api-calls--real-time-synchronization-logic)
-10. [Modular Software Architecture](#10-modular-software-architecture)
-11. [Step-by-Step GitHub Pages & Firebase Deployment](#11-step-by-step-github-pages--firebase-deployment)
-12. [3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)](#12-3-minute-congressional-app-challenge-video-script-timed--rubric-aligned)
+3. [Zero-Backend Web Storage API (localStorage) Persistence](#3-zero-backend-web-storage-api-localstorage-persistence)
+4. [Self-Contained Static District Map Coordinate System (L.CRS.Simple)](#4-self-contained-static-district-map-coordinate-system-lcrssimple)
+5. [Full-Stack Progressive Web App (PWA) & Offline Field Caching](#5-full-stack-progressive-web-app-pwa--offline-field-caching)
+6. [Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)](#6-cybersecurity--application-hardening-xss-schema-guard--anti-spam)
+7. [Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance](#7-web-accessibility-specialist-a11y--wcag-22-level-aaa-compliance)
+8. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#8-end-to-end-technical-data-flow-for-your-13-minute-video)
+9. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#9-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
+10. [Data Structures & Dynamic JSON District Binding](#10-data-structures--dynamic-json-district-binding)
+11. [API Calls & Real-Time Synchronization Logic](#11-api-calls--real-time-synchronization-logic)
+12. [Modular Software Architecture](#12-modular-software-architecture)
+13. [Step-by-Step GitHub Pages & Firebase Deployment](#13-step-by-step-github-pages--firebase-deployment)
+14. [3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)](#14-3-minute-congressional-app-challenge-video-script-timed--rubric-aligned)
 
 ---
 
@@ -51,7 +53,69 @@ Drawing on the winning legacies of past Congressional App Challenge champions li
 
 ---
 
-## 3. Full-Stack Progressive Web App (PWA) & Offline Field Caching
+## 3. Zero-Backend Web Storage API (localStorage) Persistence
+
+To enable **AccessYourDistrict** to operate as an entirely self-contained static web application with zero external database dependencies or API keys, all Firebase `'push'` and `'onValue'` functions have been replaced with the browser's **Web Storage API (`localStorage`)**:
+
+```javascript
+// js/report-service.js — Persistent Local JSON Storage Engine
+export const WEB_STORAGE_KEY = "ayd_citizen_reports_storage_v3";
+
+export function saveReportsToStorage(reportsArray) {
+  const jsonString = JSON.stringify(reportsArray);
+  localStorage.setItem(WEB_STORAGE_KEY, jsonString);
+  notifySubscribers(reportsArray);
+}
+
+export function loadReportsFromStorage() {
+  const rawJSON = localStorage.getItem(WEB_STORAGE_KEY);
+  if (!rawJSON) {
+    const samples = getInitialSampleReports();
+    localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(samples));
+    return samples;
+  }
+  return JSON.parse(rawJSON);
+}
+```
+
+### Key Architectural Benefits for Judges:
+* **No Database Setup Required:** Anyone cloning the GitHub repository can run the app immediately in their browser without creating a Firebase account or configuring security rules.
+* **Persistent User Data:** User-created map markers, upvotes, and status resolutions are serialized into a local JSON string (`localStorage.setItem`). Every time the app is opened, `loadReportsFromStorage()` retrieves and parses the JSON string so personal reports remain persistent.
+
+---
+
+## 4. Self-Contained Static District Map Coordinate System (L.CRS.Simple)
+
+Instead of relying on live tile server APIs (`tile.openstreetmap.org`), **AccessYourDistrict** supports a **Self-Contained Static District Map Mode** using Leaflet's **`L.CRS.Simple`** Cartesian coordinate system:
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│              SELF-CONTAINED STATIC MAP COORDINATE SYSTEM                  │
+│                                                                           │
+│   (0, 0) ─────────────────────────────────────────────────── (0, 1000)    │
+│     │        Florida 23rd Congressional District Vector Map     │         │
+│     │                                                           │         │
+│     │       📍 (Y: 220, X: 680) - Boca Raton Library Ramp        │         │
+│     │                                                           │         │
+│     │       📍 (Y: 650, X: 720) - Fort Lauderdale Transit Bay   │         │
+│     │                                                           │         │
+│  (1000, 0) ─────────────────────────────────────────────── (1000, 1000)   │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### A. Map Mode Switcher (`#btn-switch-map-mode`)
+* Clicking **`[ 🖼️ Static Map Mode ]`** in the header toggles the application between:
+  1. **Live OSM Mode:** Standard geographic WGS84 GPS view (`L.CRS.EPSG3857`).
+  2. **Static District Map Mode:** Loads a static vector illustration of Florida's 23rd Congressional District (`assets/images/district-map-static.svg`) onto a Cartesian grid from `[0, 0]` to `[1000, 1000]` using `L.CRS.Simple`.
+* When in Static Map Mode, clicking any point on the image captures Cartesian `(Y, X)` coordinates (e.g., `Y: 650, X: 720`), opens the Report Barrier modal, and saves the pin's Cartesian coordinates directly into `localStorage`.
+
+### B. Standalone Zero-Library Demonstration (`static-map-demo.html`)
+* Included at `/static-map-demo.html`, this standalone demonstration file proves mastery of front-end development by implementing a custom static image coordinate grid **without any external mapping library (no Leaflet, zero dependencies)**.
+* Uses percentage-based coordinate calculation (`x = (e.offsetX / width) * 100`, `y = (e.offsetY / height) * 100`) and pure `localStorage` JSON string persistence to render interactive `<div class="static-pin">` elements directly on top of the district map image.
+
+---
+
+## 5. Full-Stack Progressive Web App (PWA) & Offline Field Caching
 
 Because accessibility barriers often occur in dead zones, subways, or areas with poor cellular service, **AccessYourDistrict** is engineered as a **standalone Progressive Web App (PWA)** that functions reliably offline:
 
@@ -88,13 +152,9 @@ Because accessibility barriers often occur in dead zones, subways, or areas with
 * In the `fetch` event handler, OpenStreetMap tile requests are routed through a **Stale-While-Revalidate / Cache-First** strategy (`ayd-map-tiles-v1`).
 * When a user views their neighborhood map online, the tiles are stored locally. If they later travel into a dead zone to report an obstacle, the interactive Leaflet map continues rendering from cache.
 
-### 4. Offline Field Reporting Queue (`ayd_offline_queue`)
-* When a field worker or constituent submits a barrier report while offline (`!navigator.onLine` or network write error), `ReportService.addReport()` catches the offline state, saves the validated payload to LocalStorage (`ayd_offline_queue`), and flags it with `wasOfflineSaved: true`.
-* The moment network connectivity is restored (`window.addEventListener('online')`), `syncOfflineQueue()` automatically flushes queued reports to **Firebase Realtime Database** and notifies the user via an accessible toast.
-
 ---
 
-## 4. Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)
+## 6. Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)
 
 To ensure **AccessYourDistrict** remains secure against script injection, invalid coordinate poisoning, and automated map spam when hosted publicly on **GitHub Pages**, we implemented a **3-layer defensive cybersecurity architecture**:
 
@@ -146,7 +206,7 @@ To ensure **AccessYourDistrict** remains secure against script injection, invali
 
 ---
 
-## 5. Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance
+## 7. Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance
 
 To ensure **AccessYourDistrict** is usable by everyone—including screen reader users and keyboard-only navigators—the application implements full **WCAG 2.2 Level AA and Level AAA standards**:
 
@@ -181,7 +241,7 @@ Every button, map legend item, severity badge, and body text style exceeds WCAG 
 
 ---
 
-## 6. End-to-End Technical Data Flow (For Your 1–3 Minute Video)
+## 8. End-to-End Technical Data Flow (For Your 1–3 Minute Video)
 
 When explaining your technical implementation in your submission video, use this **step-by-step Data Flow summary** to demonstrate mastery of client-server architecture and real-time synchronization:
 
@@ -199,37 +259,30 @@ When explaining your technical implementation in your submission video, use this
                                       │
                                       ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
-│               STEP 3: CLOUD PERSISTENCE (Firebase push)                   │
-│ ReportService.addReport() pushes JSON record to Firebase Realtime DB      │
-└─────────────────────────────────────┬─────────────────────────────────────┘
-                                      │
-                                      ▼ (WebSockets Broadcast in < 100ms)
-┌───────────────────────────────────────────────────────────────────────────┐
-│         STEP 4: REAL-TIME WEBSOCKET BROADCAST (Firebase onValue)          │
-│ Firebase pushes updated NoSQL JSON tree to every connected citizen        │
+│       STEP 3: LOCALSTORAGE PERSISTENCE (saveReportsToStorage)             │
+│ JSON string saved in browser storage (or Firebase push in cloud mode)     │
 └─────────────────────────────────────┬─────────────────────────────────────┘
                                       │
                                       ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
-│              STEP 5: O(1) MAP & SIDEBAR RECONCILIATION                    │
+│              STEP 4: O(1) MAP & SIDEBAR RECONCILIATION                    │
 │ • UIController updates search/filter pipeline and category statistics     │
 │ • MapController diffs active IDs against Map<string, L.Marker> index      │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-### The 6-Step Technical Data Flow Breakdown:
-1. **Event Capture & Coordinate Extraction:** When a resident clicks **"Report Barrier"** and selects a point on the map, Leaflet captures the WGS84 pixel coordinates and converts them to floating-point `lat` and `lng`.
+### The 5-Step Technical Data Flow Breakdown:
+1. **Event Capture & Coordinate Extraction:** When a resident clicks **"Report Barrier"** and selects a point on the map, Leaflet captures the coordinates—either WGS84 GPS floats in Live OSM mode or Cartesian `(Y, X)` floats (`0..1000`) in Static District Map Mode (`L.CRS.Simple`).
 2. **Form Sanitization & Schema Structuring:** In `UIController`, user inputs are validated and structured into an `AccessibilityReport` JSON object with an epoch timestamp and `status: "OPEN"`.
-3. **Cloud Mutation via Firebase SDK:** `ReportService.addReport()` executes an asynchronous API call using `push(ref(db, 'reports'), reportData)`. Firebase generates a unique chronological ID (e.g., `-N1a2B3c4D5e6F7g8H9`) and stores the record in its cloud NoSQL tree.
-4. **WebSocket Push Broadcast:** Unlike standard REST APIs that require polling, Firebase maintains an open **WebSocket** connection. The moment the database tree changes, Firebase broadcasts an immutable snapshot to every subscribed browser in milliseconds.
-5. **State Transformation:** `ReportService.subscribeToReports()` receives the snapshot dictionary, converts it into an array of typed objects, sorts them chronologically, and triggers application listeners.
-6. **O(1) Map & UI Reconciliation:**
+3. **Storage Mutation (`saveReportsToStorage`):** In `ReportService.addReport()`, the validated report is appended to the current reports array and serialized into a persistent JSON string using `localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(reportsArray))`.
+4. **State Transformation & Event Notification:** `notifySubscribers()` receives the updated array, sorts it chronologically by timestamp, and triggers application listeners.
+5. **O(1) Map & UI Reconciliation:**
    * **UI Layer:** `UIController` filters the dataset against the active search query and category checkboxes, updates category frequency counters, and renders the sidebar feed.
    * **Map Layer:** `MapController.syncMarkers()` iterates through visible report IDs and diffs them against its internal HashMap (`Map<string, L.Marker>`). Existing pins are updated in place, new pins are added, and removed items are pruned in **constant time ($O(1)$)** without wiping or re-rendering the DOM.
 
 ---
 
-## 7. Advanced CS Programming Skill: CSV Export Engine for City Planners
+## 9. Advanced CS Programming Skill: CSV Export Engine for City Planners
 
 In `js/report-service.js`, the `exportReportsToCSV()` function highlights an advanced Computer Science skill: **custom data serialization and browser Blob management**:
 
@@ -257,17 +310,17 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 8. Data Structures & Dynamic JSON District Binding
+## 10. Data Structures & Dynamic JSON District Binding
 
 1. **The `districtConfig` Schema (`js/district-config.js`):**
    * Stores the Representative's name, district code (`FL-23`), office location, phone, and official House.gov contact URL.
    * `renderDistrictHeader(config)` binds this JSON object to DOM elements on page load, allowing any student from any of the 435 U.S. Congressional Districts to customize the application without altering HTML markup.
-2. **The `AccessibilityReport` Schema (NoSQL JSON Tree):**
-   * Stores floating-point coordinates (`lat`, `lng`), categorical enum tags (`category`, `severity`), and epoch timestamps.
+2. **The `AccessibilityReport` Schema (NoSQL JSON Tree / localStorage string):**
+   * Stores floating-point coordinates (`lat`, `lng`, `staticY`, `staticX`), categorical enum tags (`category`, `severity`), and epoch timestamps.
 3. **The `CivicOffice` Schema:**
    * Models verified accessible government offices (`type: "CONGRESSIONAL" | "MUNICIPAL"`, `status: "VERIFIED_ACCESSIBLE"`, and an array of `adaFeatures`).
 4. **Marker Index Map (`Map<string, L.Marker>`):**
-   * Indexes Leaflet markers by ID to achieve **$O(1)$ constant-time** marker lookup, update, and deletion during real-time WebSocket syncs.
+   * Indexes Leaflet markers by ID to achieve **$O(1)$ constant-time** marker lookup, update, and deletion during state synchronization.
 5. **Multi-Select Category Set (`Set<string>`):**
    * Stores active filter tags for $O(1)$ inclusion checking (`this.selectedCategories.has(report.category)`).
 6. **Frequency Aggregation Dictionary (`categoryCounts`):**
@@ -275,15 +328,15 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 9. API Calls & Real-Time Synchronization Logic
+## 11. API Calls & Real-Time Synchronization Logic
 
-1. **Firebase Realtime Database WebSockets (`onValue`):** Opens a persistent WebSocket for instant real-time synchronization across all visitors.
+1. **Web Storage API (`localStorage.getItem / setItem`):** Zero-backend browser storage API that persists citizen reports as local JSON strings.
 2. **Leaflet.js & OpenStreetMap Tile Layer API:** Dynamically fetches street imagery tiles (`tile.openstreetmap.org/{z}/{x}/{y}.png`) based on viewport zoom and pan coordinates.
 3. **HTML5 Geolocation API:** Uses `navigator.geolocation.getCurrentPosition()` on startup to center the map on the citizen's actual location.
 
 ---
 
-## 10. Modular Software Architecture
+## 12. Modular Software Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -311,34 +364,36 @@ export function exportReportsToCSV(reports) {
                  ▼                               ▼
        ┌───────────────────┐           ┌───────────────────┐
        │firebase-config.js │           │district-config.js │
-       │ (Modular Web SDK  │           │ (Representative   │
-       │  v10 via CDN)     │           │  JSON Binding)    │
+       │ (Web Storage API  │           │ (Representative   │
+       │  Storage Toggle)  │           │  JSON Binding)    │
        └───────────────────┘           └───────────────────┘
 ```
 
 ---
 
-## 11. Step-by-Step GitHub Pages & Firebase Deployment
+## 13. Step-by-Step GitHub Pages & Firebase Deployment
 
-### Step 1: Set up Firebase Realtime Database
-1. Go to the [Firebase Console](https://console.firebase.google.com/) and click **Add Project** (e.g., `access-your-district`).
-2. In the left menu, select **Build > Realtime Database** and click **Create Database**.
-3. Copy the security rules from [`firebase-security-rules.json`](./firebase-security-rules.json) into the **Rules** tab.
-4. Click **Project Settings > General > Add App > Web (`</>`)** and copy your `firebaseConfig` object.
-5. Open `js/firebase-config.js` in this project and replace `apiKey`, `databaseURL`, and other fields with your project credentials.
-
-### Step 2: Deploy to GitHub Pages
+### Step 1: Deploy to GitHub Pages (Zero-Backend Mode)
 1. Push this repository to your GitHub account on the `main` branch.
 2. In your GitHub repository, go to **Settings > Pages**.
 3. Under **Build and deployment > Source**, select **Deploy from a branch**.
 4. Choose `main` branch and `/ (root)` folder, then click **Save**.
 5. Within 1–2 minutes, your site will be live at `https://<your-username>.github.io/<repo-name>/`!
+   * Works 100% out of the box using **Web Storage API (`localStorage`)** and supports both **Live OSM Mode** and **Self-Contained Static District Map Mode (`L.CRS.Simple`)**.
+
+### Step 2: (Optional) Enabling Live Cloud Firebase Mode
+To connect your own live **Firebase Realtime Database** project for multi-user cloud crowdsourcing:
+1. Create a free project at the [Firebase Console](https://console.firebase.google.com/).
+2. Navigate to **Build > Realtime Database** and click **Create Database**.
+3. Copy the security rules from [`firebase-security-rules.json`](./firebase-security-rules.json) into the **Rules** tab.
+4. Go to **Project Settings > General > Your apps > Web app (`</>`)** and copy your `firebaseConfig` object.
+5. Open `js/firebase-config.js` in your editor, set `export const isLiveFirebaseConfigured = true;`, and paste your project credentials.
 
 ---
 
-## 12. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
+## 14. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
 
-> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `service-worker.js` (PWA caching), `security-utils.js` (XSS sanitization), `js/district-config.js` (JSON header binding), and `firebase-security-rules.json`!
+> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `js/report-service.js` (`localStorage.setItem`), `js/map-controller.js` (`L.CRS.Simple`), `static-map-demo.html`, and `js/district-config.js`!
 
 ### **[0:00 – 0:40] Introduction, Problem Statement & Congressional Seal Branding**
 * **Visual:** Show yourself speaking or the homepage of **AccessYourDistrict**. Point out the Dynamic Congressional District Header (`FL-23 / Rep. Jared Moskowitz`) and demonstrate clicking the `[ A+ ]` font scaler and toggling `[ 🌗 High Contrast ]`.
@@ -347,25 +402,23 @@ export function exportReportsToCSV(reports) {
   > 
   > *At the top of the app, our Dynamic Congressional District Header displays my Representative's name and office contact info using a modular JSON object, linking directly to my Member's official House.gov portal. To ensure the tool is usable by everyone, I engineered it with an Accessibility-First approach: every Leaflet map pin has explicit ARIA labels and can be triggered using only the Tab and Enter keys, while our color palette exceeds WCAG AAA contrast ratios."*
 
-### **[0:40 – 1:30] Live Demonstration: PWA Offline Reporting & Civic Resource Directory**
-* **Visual:** Show how the app opens centered on your location via the Geolocation API. Click **Report Barrier**, pin a location, select `"♿ Broken Ramp"`, and submit. Show the **`[ 📲 Install App ]`** PWA button. Then click the **`🏛️ Civic Directory`** tab and show the verified government offices and ADA feature badges.
+### **[0:40 – 1:30] Live Demonstration: Zero-Backend Persistence & Static Map Mode**
+* **Visual:** Show how the app opens centered on your location via the Geolocation API. Click **Report Barrier**, pin a location, select `"♿ Broken Ramp"`, and submit. Click **`[ 🖼️ Static Map Mode ]`** to switch to the self-contained Cartesian district image map (`L.CRS.Simple`) and show `static-map-demo.html`.
 * **Script:**
-  > *"Because accessibility barriers often happen in dead zones, I engineered AccessYourDistrict as an installable **Progressive Web App (PWA)**. Our Service Worker precaches Leaflet.js CDN libraries and uses Stale-While-Revalidate tile caching. If a constituent submits a report offline in a dead zone, our offline field queue saves it locally and flushes it automatically when network connection is restored.*
+  > *"To ensure AccessYourDistrict is 100% self-contained and zero-backend, I replaced external database dependencies with the browser's **Web Storage API (localStorage)**. When a resident submits a report, it is serialized into a persistent local JSON string.*
   > 
-  > *To maximize societal impact, I also added a **Civic Resource Directory**. Residents can search verified ADA-accessible local government and congressional offices, view their verified accessibility features, and connect directly with constituent caseworkers to advocate for repairs."*
+  > *In addition to live OpenStreetMap GPS view, visitors can click **Static Map Mode** to switch to a self-contained Cartesian coordinate map of Florida's 23rd Congressional District using Leaflet's `L.CRS.Simple`. I also created a standalone zero-library demonstration page showing how to place interactive DIV pins on static images using percentage coordinates without any external mapping library!"*
 
 ### **[1:30 – 2:30] CS Skills: Cybersecurity, Data Flow & CSV Export (Rubric Focus)**
 * **Visual:** Show the ASCII Data Flow diagram above or switch to your code editor showing `security-utils.js` (`sanitizeText`, `validateReportInput`), `firebase-security-rules.json`, and `map-controller.js` (`this.markerMap = new Map()`).
 * **Script:**
-  > *"Let's look at my **Computer Science logic, Cybersecurity, and Data Flow**. Because AccessYourDistrict is hosted publicly on GitHub Pages, I hardened it with a 3-layer defensive cybersecurity architecture. All user inputs pass through `sanitizeText()` and `escapeHTML()` to neutralize XSS scripts, while `validateReportInput()` checks geographical coordinate bounds.*
+  > *"Let's look at my **Computer Science logic, Cybersecurity, and Data Flow**. Because AccessYourDistrict is hosted publicly on GitHub Pages, I hardened it with a 3-layer defensive cybersecurity architecture. All user inputs pass through `sanitizeText()` and `escapeHTML()` to neutralize XSS scripts, while `validateReportInput()` checks coordinate bounds and enforces rate limits.*
   > 
-  > *When a report is submitted, `ReportService.addReport()` pushes the JSON record to **Firebase Realtime Database**. To prevent spam, I configured Server-Side Firebase Security Rules (`.validate`) that reject unauthenticated spam pins or invalid schemas directly in the cloud.*
-  > 
-  > *Instead of polling, my app uses Firebase's `onValue()` WebSocket listener to broadcast updates in under 100 milliseconds. In my `MapController`, I index Leaflet markers in a JavaScript **`HashMap (Map<string, L.Marker>)`**, updating pins in **constant time ($O(1)$)** without re-rendering the DOM.*
+  > *When reports are loaded, `ReportService.loadReportsFromStorage()` retrieves and parses the persistent JSON string. In my `MapController`, I index Leaflet markers in a JavaScript **`HashMap (Map<string, L.Marker>)`**, updating pins in **constant time ($O(1)$)** without re-rendering the DOM.*
   > 
   > *Finally, to turn citizen reports into municipal action, I built a custom **CSV Export engine** using JavaScript Blobs. City planners can export crowdsourced barrier datasets in standard RFC 4180 format to import directly into municipal GIS systems."*
 
 ### **[2:30 – 3:00] Civic Advocacy & Conclusion**
 * **Visual:** Show the filtered map with several reports, the mobile tab switcher, and the Congressional District Portal banner.
 * **Script:**
-  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with standalone PWA offline field caching, verified government resources, cybersecurity hardening, WCAG AAA accessibility, and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*
+  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with standalone zero-backend Web Storage API persistence, self-contained static Cartesian maps, cybersecurity hardening, WCAG AAA accessibility, and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*

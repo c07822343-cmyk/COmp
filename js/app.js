@@ -6,26 +6,28 @@
  *
  * ARCHITECTURE, DATA FLOW, PWA & SOCIETAL USE EXPLANATION:
  * --------------------------------------------------------
- * 1. Progressive Web App (PWA) & Offline Caching Architecture:
+ * 1. Web Storage API (localStorage) Persistence:
+ *    - Replaces Firebase 'push' and 'onValue' with 100% self-contained local
+ *      JSON string storage on the user's browser (`localStorage`).
+ *
+ * 2. Self-Contained Static District Map Mode (`L.CRS.Simple`):
+ *    - Visitors can toggle between Live OpenStreetMap tile mode ('OSM') and a
+ *      self-contained Cartesian coordinate static image map of Florida's 23rd
+ *      Congressional District ('STATIC_IMAGE'), allowing offline pinning
+ *      without tile servers.
+ *
+ * 3. Progressive Web App (PWA) & Offline Caching Architecture:
  *    - Registers `service-worker.js` to precache the static app shell and
  *      external Leaflet.js libraries (`leaflet.css`, `leaflet.js`).
- *    - Uses a Stale-While-Revalidate caching strategy for OpenStreetMap tiles
- *      (`tile.openstreetmap.org`), allowing constituents to navigate maps
- *      in dead zones or subways with zero cellular service.
  *    - Captures the native PWA `beforeinstallprompt` event so users can install
  *      AccessYourDistrict directly to their smartphone home screen.
  *
- * 2. Offline Field Reporting Queue (`ayd_offline_queue`):
- *    - Reports submitted while offline (`!navigator.onLine` or dead zone) are
- *      enqueued locally and automatically synced to Firebase Realtime Database
- *      the moment connection is restored (`window.addEventListener('online')`).
- *
- * 3. Dynamic District Header (Civic Representative Info):
+ * 4. Dynamic District Header (Civic Representative Info):
  *    - Uses `districtConfig` JSON object and `renderDistrictHeader()` to bind
  *      the Representative's name, district code, phone, and official House.gov
  *      contact URL dynamically to the top of the application.
  *
- * 4. Societal Use (Civic Resource & Government Directory Layer):
+ * 5. Societal Use (Civic Resource & Government Directory Layer):
  *    - Integrates `getCivicOffices()` to display verified ADA-accessible local
  *      government and congressional offices on the map and in the sidebar.
  *    - Implements CSV Export (`exportReportsToCSV`) so city planners and DPW
@@ -41,8 +43,7 @@ import {
   resolveReport,
   resetDemoData,
   getCivicOffices,
-  exportReportsToCSV,
-  syncOfflineQueue
+  exportReportsToCSV
 } from "./report-service.js";
 import { districtConfig, renderDistrictHeader } from "./district-config.js";
 import { MapController } from "./map-controller.js";
@@ -59,7 +60,12 @@ class AccessYourDistrictApp {
     // 1. Initialize UI Controller with event callbacks
     this.ui = new UIController({
       onReportSubmit: async (formData) => {
-        await addReport(formData);
+        // Submit report with current active mapMode (OSM vs STATIC_IMAGE)
+        const enrichedForm = {
+          ...formData,
+          mapMode: this.map.mapMode
+        };
+        await addReport(enrichedForm);
       },
       onFilterChange: (filteredReports, _selectedCategories) => {
         this.map.syncMarkers(filteredReports);
@@ -117,13 +123,13 @@ class AccessYourDistrictApp {
     // 2. Initialize Map & UI DOM event listeners
     this.map.init();
     this.ui.init();
-    this.ui.setDatabaseStatus(isLiveFirebaseConfigured);
+    this.ui.setDatabaseStatus(false); // Explicitly display LocalStorage Web Storage API mode
 
     // 3. Bind top Navigation Bar Actions & PWA Install Prompt
     this.bindHeaderActions();
     this.initPWA();
 
-    // 4. Subscribe to real-time reports from Firebase / Demo DB
+    // 4. Subscribe to persistent reports from localStorage via Web Storage API
     subscribeToReports((reports) => {
       this.latestReports = reports;
       this.ui.updateSidebar(reports, this.civicOffices);
@@ -150,15 +156,40 @@ class AccessYourDistrictApp {
       exportCSV: () => exportReportsToCSV(this.latestReports),
       toggleHighContrast: () => this.ui.toggleHighContrast(),
       updateDistrict: (newConfig) => renderDistrictHeader(newConfig),
-      syncOffline: () => syncOfflineQueue()
+      toggleMapMode: () => this.toggleMapMode()
     };
   }
 
   /**
-   * Initialize Progressive Web App (PWA) Service Worker & Offline Queue Sync.
+   * Toggle between Live OSM view and Self-Contained Static District Map Mode (`L.CRS.Simple`).
+   */
+  toggleMapMode() {
+    const currentMode = this.map.mapMode;
+    const nextMode = currentMode === "OSM" ? "STATIC_IMAGE" : "OSM";
+
+    this.map.switchMapMode(nextMode);
+
+    const btnLabel = document.getElementById("map-mode-label");
+    if (btnLabel) {
+      btnLabel.textContent = nextMode === "STATIC_IMAGE" ? "Live OSM Mode" : "Static Map Mode";
+    }
+
+    // Synchronize markers on new coordinate grid
+    this.map.syncMarkers(this.ui.filteredReports);
+    this.map.syncCivicOffices(this.civicOffices, true);
+
+    this.ui.showToast(
+      nextMode === "STATIC_IMAGE"
+        ? "🖼️ Activated Self-Contained Static District Map Mode (L.CRS.Simple)"
+        : "🌐 Restored Live OpenStreetMap Geographical Mode",
+      "success"
+    );
+  }
+
+  /**
+   * Initialize Progressive Web App (PWA) Service Worker.
    */
   initPWA() {
-    // 1. Register Service Worker
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
@@ -172,7 +203,6 @@ class AccessYourDistrictApp {
       });
     }
 
-    // 2. Capture native install prompt for mobile/desktop home screen installation
     let deferredPrompt = null;
     const installBtn = document.getElementById("btn-install-pwa");
 
@@ -197,26 +227,10 @@ class AccessYourDistrictApp {
         deferredPrompt = null;
       });
     }
-
-    // 3. Online/Offline Network Resilience & Automatic Field Queue Flushing
-    window.addEventListener("online", async () => {
-      console.log("📡 [Network] Connection restored.");
-      const syncedCount = await syncOfflineQueue();
-      if (syncedCount > 0) {
-        this.ui.showToast(`📡 Network Online: Automatically synced ${syncedCount} offline-queued barrier report(s) to Firebase!`, "success");
-      } else {
-        this.ui.showToast("📡 Network Online: Connection restored.", "success");
-      }
-    });
-
-    window.addEventListener("offline", () => {
-      console.log("📡 [Network] Device is offline.");
-      this.ui.showToast("📡 Offline Mode: You can still view cached maps and queue barrier reports locally!", "error");
-    });
   }
 
   /**
-   * Bind header action buttons (My District, Report Barrier, Cancel Report).
+   * Bind header action buttons (My District, Report Barrier, Cancel Report, Switch Map Mode).
    */
   bindHeaderActions() {
     const btnLocate = document.getElementById("btn-locate");
@@ -238,6 +252,11 @@ class AccessYourDistrictApp {
     const btnCancelReport = document.getElementById("btn-cancel-report");
     if (btnCancelReport) {
       btnCancelReport.addEventListener("click", () => this.exitReportingMode());
+    }
+
+    const btnSwitchMode = document.getElementById("btn-switch-map-mode");
+    if (btnSwitchMode) {
+      btnSwitchMode.addEventListener("click", () => this.toggleMapMode());
     }
 
     window.addEventListener("keydown", (e) => {
