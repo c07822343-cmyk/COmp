@@ -1,21 +1,19 @@
 /**
  * ============================================================================
- * ACCESSYOURDISTRICT - REPORT & CIVIC DIRECTORY SERVICE (DATA LAYER)
+ * ACCESSYOURDISTRICT - REPORT, CIVIC DIRECTORY & OFFLINE QUEUE SERVICE
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * CS LOGIC, DATA STRUCTURES & DATA EXPORT EXPLANATION:
- * ----------------------------------------------------
- * 1. AccessibilityReport Schema (NoSQL JSON Record):
- *    Every reported accessibility barrier is modeled as a standardized JSON
- *    object with well-typed fields (`id`, `title`, `category`, `lat`, `lng`,
- *    `description`, `severity`, `status`, `timestamp`, `upvotes`).
+ * CS LOGIC, DATA STRUCTURES & OFFLINE FIELD ARCHITECTURE:
+ * -------------------------------------------------------
+ * 1. Offline Field Resiliency (`ayd_offline_queue`):
+ *    - When a constituent or field worker submits a barrier report in an area
+ *      with zero cellular service (`!navigator.onLine`), `addReport()` stores
+ *      the validated payload into a LocalStorage offline queue (`ayd_offline_queue`).
+ *    - When network connectivity is restored (`online` event), `syncOfflineQueue()`
+ *      automatically flushes queued reports to Firebase Realtime Database.
  *
- * 2. Cybersecurity Hardening (XSS, Schema Validation & Spam Protection):
- *    - Integrates `validateReportInput` and `checkRateLimit` from `security-utils.js`
- *      to ensure data schema integrity and prevent automated spam pins.
- *
- * 3. Advanced Programming Skill - CSV Data Export Engine (`exportReportsToCSV`):
+ * 2. Advanced Programming Skill - CSV Data Export Engine (`exportReportsToCSV`):
  *    - Converts JSON trees into standardized RFC 4180 CSV files with proper
  *      string escaping, MIME-type Blob serialization, and automated downloads.
  * ============================================================================
@@ -36,8 +34,8 @@ import {
   sanitizeText 
 } from "./security-utils.js";
 
-// Key used for LocalStorage demo database fallback
 const LOCAL_STORAGE_KEY = "access_your_district_reports_v1";
+const OFFLINE_QUEUE_KEY = "ayd_offline_queue_v1";
 
 // Internal list of active subscriber callbacks
 const subscribers = new Set();
@@ -115,7 +113,6 @@ function getInitialSampleReports() {
 
 /**
  * Verified Government & Civic Directory Layer.
- * These municipal and congressional offices serve as verified accessible community hubs.
  * @returns {Array<Object>} Array of CivicOffice records
  */
 export function getCivicOffices() {
@@ -232,6 +229,88 @@ function notifySubscribers(reports) {
 
 /**
  * ============================================================================
+ * OFFLINE QUEUE METHODS (PWA RESILIENCE IN ZERO-CELL-SERVICE DEAD ZONES)
+ * ============================================================================
+ */
+function getOfflineQueue() {
+  try {
+    const data = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveOfflineQueue(queue) {
+  try {
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+  } catch (err) {
+    console.warn("⚠️ Error saving offline queue:", err);
+  }
+}
+
+/**
+ * Enqueue a report submitted while offline in the field.
+ * @param {Object} report
+ */
+function enqueueOfflineReport(report) {
+  const queue = getOfflineQueue();
+  const queuedReport = {
+    ...report,
+    id: "offline_rep_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+    isOfflineQueued: true
+  };
+  queue.push(queuedReport);
+  saveOfflineQueue(queue);
+
+  // Also reflect in local reports so field user sees their pin immediately
+  const localReports = getLocalReports();
+  localReports.push(queuedReport);
+  saveLocalReports(localReports);
+
+  return queuedReport;
+}
+
+/**
+ * Flush any queued offline reports to Firebase when network connection is restored.
+ * @returns {Promise<number>} Number of reports successfully synced
+ */
+export async function syncOfflineQueue() {
+  const queue = getOfflineQueue();
+  if (queue.length === 0 || !navigator.onLine) {
+    return 0;
+  }
+
+  let syncedCount = 0;
+
+  if (isLiveFirebaseConfigured && db) {
+    const reportsRef = ref(db, "reports");
+    const remainingQueue = [];
+
+    for (const item of queue) {
+      try {
+        const payload = { ...item };
+        delete payload.id;
+        delete payload.isOfflineQueued;
+        await push(reportsRef, payload);
+        syncedCount++;
+      } catch (err) {
+        console.warn("Failed to sync offline report item:", err);
+        remainingQueue.push(item);
+      }
+    }
+
+    saveOfflineQueue(remainingQueue);
+    if (syncedCount > 0) {
+      console.log(`📡 [OfflineSync] Successfully flushed ${syncedCount} queued report(s) to Firebase!`);
+    }
+  }
+
+  return syncedCount;
+}
+
+/**
+ * ============================================================================
  * PUBLIC SERVICE METHODS (API LAYER)
  * ============================================================================
  */
@@ -286,20 +365,18 @@ export function subscribeToReports(callback) {
 }
 
 /**
- * Submit a new accessibility barrier report with rigorous cybersecurity hardening.
- * Enforces XSS sanitization, schema validation, and rate-limiting.
+ * Submit a new accessibility barrier report with rigorous cybersecurity hardening
+ * and PWA offline queue resilience.
  *
  * @param {Object} formData
  * @returns {Promise<Object>} The newly created report object
  */
 export async function addReport(formData) {
-  // 1. Check Rate-Limiting / Anti-Spam Guard (15 seconds between submissions)
   const rateCheck = checkRateLimit("report_submit", 15);
   if (!rateCheck.allowed) {
     throw new Error(`⏳ Anti-Spam Rate Limit: Please wait ${rateCheck.remainingSeconds} seconds before submitting another report.`);
   }
 
-  // 2. Perform Schema Validation & XSS Sanitization
   const validation = validateReportInput(formData);
   if (!validation.isValid || !validation.sanitizedData) {
     throw new Error(`⚠️ Validation Error: ${validation.errors.join(" ")}`);
@@ -307,14 +384,26 @@ export async function addReport(formData) {
 
   const newReport = validation.sanitizedData;
 
-  // 3. Persist to Firebase or LocalStorage
+  // PWA OFFLINE FIELD CHECK: If browser is offline, store in offline queue
+  if (!navigator.onLine) {
+    console.info("📡 [Offline Mode] Device is offline. Enqueuing barrier report locally.");
+    const queued = enqueueOfflineReport(newReport);
+    return { ...queued, wasOfflineSaved: true };
+  }
+
   if (isLiveFirebaseConfigured && db) {
-    const reportsRef = ref(db, "reports");
-    const newRef = await push(reportsRef, newReport);
-    return {
-      id: newRef.key,
-      ...newReport
-    };
+    try {
+      const reportsRef = ref(db, "reports");
+      const newRef = await push(reportsRef, newReport);
+      return {
+        id: newRef.key,
+        ...newReport
+      };
+    } catch (err) {
+      console.warn("📡 [Firebase Error] Network write failed; saving to offline queue:", err);
+      const queued = enqueueOfflineReport(newReport);
+      return { ...queued, wasOfflineSaved: true };
+    }
   } else {
     const currentReports = getLocalReports();
     const created = {
@@ -337,7 +426,7 @@ export async function addReport(formData) {
 export async function upvoteReport(reportId, currentUpvotes = 0) {
   const newCount = currentUpvotes + 1;
 
-  if (isLiveFirebaseConfigured && db) {
+  if (isLiveFirebaseConfigured && db && navigator.onLine) {
     const reportRef = ref(db, `reports/${reportId}`);
     await update(reportRef, { upvotes: newCount });
     return newCount;
@@ -360,7 +449,7 @@ export async function upvoteReport(reportId, currentUpvotes = 0) {
  * @returns {Promise<boolean>}
  */
 export async function resolveReport(reportId) {
-  if (isLiveFirebaseConfigured && db) {
+  if (isLiveFirebaseConfigured && db && navigator.onLine) {
     const reportRef = ref(db, `reports/${reportId}`);
     await update(reportRef, { status: "RESOLVED" });
     return true;
@@ -389,11 +478,6 @@ export function resetDemoData() {
  * ============================================================================
  * ADVANCED COMPUTER PROGRAMMING SKILL: CSV EXPORT ENGINE FOR CITY PLANNERS
  * ============================================================================
- * Converts JSON records into an RFC 4180-compliant CSV file and automatically
- * downloads it so data can be imported by city planners and DPW repair crews.
- *
- * @param {Array<Object>} reports - Array of AccessibilityReport records
- * @returns {string} The generated CSV filename
  */
 export function exportReportsToCSV(reports = []) {
   if (!reports || reports.length === 0) {

@@ -8,12 +8,13 @@
   <!-- Primary SEO Meta Tags -->
   <meta name="title" content="AccessYourDistrict — Crowdsourced Civic Accessibility &amp; ADA Reporting Platform">
   <meta name="description" content="A crowdsourced civic engagement web application for reporting local accessibility barriers, improving ADA inclusion, and connecting constituents with their U.S. Congressional District Office. Built for the Congressional App Challenge.">
-  <meta name="keywords" content="Congressional App Challenge, civic engagement, accessibility, ADA, Leaflet, OpenStreetMap, crowdsourcing, government, constituents, disability rights, civic tech">
+  <meta name="keywords" content="Congressional App Challenge, civic engagement, accessibility, ADA, Leaflet, OpenStreetMap, crowdsourcing, government, constituents, disability rights, civic tech, PWA, offline">
   <meta name="author" content="Congressional App Challenge Student Developer">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://c07822343-cmyk.github.io/COmp/">
 
-  <!-- Favicon & Mobile Web App Icons -->
+  <!-- Progressive Web App (PWA) Manifest & Mobile Icons -->
+  <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./assets/icons/favicon.svg">
   <link rel="apple-touch-icon" href="./assets/icons/favicon.svg">
   <meta name="theme-color" content="#0d47a1">
@@ -57,7 +58,7 @@
   <a href="#app-sidebar" class="skip-link">Skip to Reports Dashboard &amp; Filters</a>
 
   <!-- =========================================================================
-       HEADER / NAVIGATION BAR WITH ACCESSIBILITY TOOLBAR & ADMIN EXPORT
+       HEADER / NAVIGATION BAR WITH ACCESSIBILITY TOOLBAR & PWA INSTALL
        ========================================================================= -->
   <header class="app-header" role="banner">
     <div class="header-brand">
@@ -99,6 +100,14 @@
         <span class="status-dot"></span>
         <span class="status-text">Demo Mode (Local Storage)</span>
       </div>
+
+      <!-- PWA Standalone Install Button (Hidden until browser fires beforeinstallprompt) -->
+      <button type="button" id="btn-install-pwa" class="btn btn-secondary hidden" 
+              title="Install AccessYourDistrict as a standalone app on your device" 
+              aria-label="Install app to home screen">
+        <span aria-hidden="true">📲</span>
+        <span>Install App</span>
+      </button>
 
       <!-- CSV Export Button (Advanced CS Programming Skill - Data Export for City Planners) -->
       <button type="button" id="btn-export-csv" class="btn btn-secondary" 
@@ -407,7 +416,7 @@
         </div>
         <p class="footnote">
           Built for the <strong>Congressional App Challenge</strong> &bull; 
-          Powered by Leaflet.js &amp; Firebase Realtime Database.
+          Powered by Leaflet.js, OpenStreetMap &amp; Firebase Realtime DB.
         </p>
       </footer>
     </aside>

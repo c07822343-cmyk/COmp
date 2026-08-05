@@ -18,6 +18,8 @@
  * 3. Dist / Production Pipeline:
  *    - Outputs optimized files both in-place (`css/styles.min.css`) and into
  *      a clean `/dist` folder ready for automated GitHub Actions CI/CD deployment.
+ *    - Automatically copies PWA manifest (`manifest.json`) and Service Worker
+ *      (`service-worker.js`) to `/dist`.
  * ============================================================================
  */
 
@@ -27,74 +29,43 @@ const path = require("path");
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DIST_DIR = path.join(ROOT_DIR, "dist");
 
-// Ensure directory exists
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
 }
 
-/**
- * Minify CSS content by removing comments, collapsing whitespace, and trimming symbols.
- * @param {string} css
- * @returns {string}
- */
 function minifyCSS(css) {
   return css
-    // Remove multi-line comments /* ... */
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    // Remove extra whitespace around symbols
     .replace(/\s*([{}|:;,>+=~])\s*/g, "$1")
-    // Replace multiple spaces with a single space
     .replace(/\s+/g, " ")
-    // Remove trailing semicolon before closing brace
     .replace(/;}/g, "}")
     .trim();
 }
 
-/**
- * Minify JS content safely for ES Modules.
- * Strips block comments and collapses unnecessary whitespace while preserving line
- * syntax for template literals and import/export statements.
- * @param {string} js
- * @returns {string}
- */
 function minifyJS(js) {
   return js
-    // Strip JSDoc and multi-line comments /* ... */
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    // Trim each line and remove empty lines
     .split("\n")
     .map((line) => {
-      // Remove inline // comments if they are at start of line or standalone
       const trimmed = line.trim();
       if (trimmed.startsWith("//")) return "";
       return trimmed;
     })
     .filter((line) => line.length > 0)
     .join("\n")
-    // Collapse multiple empty spaces outside strings where safe
     .replace(/ {2,}/g, " ")
     .trim();
 }
 
-/**
- * Minify HTML content by removing comments and collapsing blank lines.
- * @param {string} html
- * @returns {string}
- */
 function minifyHTML(html) {
   return html
-    // Remove HTML comments (except IE conditionals if any)
     .replace(/<!--[\s\S]*?-->/g, "")
-    // Collapse multiple spaces between tags
     .replace(/>\s+</g, "><")
     .trim();
 }
 
-/**
- * Recursively copy a directory from source to dest.
- */
 function copyDir(src, dest) {
   ensureDir(dest);
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -111,9 +82,6 @@ function copyDir(src, dest) {
   }
 }
 
-/**
- * Main DevOps Build Process
- */
 function runBuild() {
   console.log("============================================================================");
   console.log("🚀 [AccessYourDistrict DevOps] Starting production minification & build...");
@@ -121,21 +89,18 @@ function runBuild() {
 
   const stats = [];
 
-  // 1. Prepare /dist directory
   ensureDir(DIST_DIR);
   ensureDir(path.join(DIST_DIR, "css"));
   ensureDir(path.join(DIST_DIR, "js"));
   ensureDir(path.join(DIST_DIR, "assets"));
 
-  // 2. Process CSS (`css/styles.css` -> `css/styles.min.css` and `dist/css/styles.css`)
+  // 1. Process CSS
   const cssSrcPath = path.join(ROOT_DIR, "css", "styles.css");
   if (fs.existsSync(cssSrcPath)) {
     const rawCSS = fs.readFileSync(cssSrcPath, "utf8");
     const minCSS = minifyCSS(rawCSS);
 
-    // Save in-place minified version
     fs.writeFileSync(path.join(ROOT_DIR, "css", "styles.min.css"), minCSS, "utf8");
-    // Save to dist
     fs.writeFileSync(path.join(DIST_DIR, "css", "styles.css"), minCSS, "utf8");
     fs.writeFileSync(path.join(DIST_DIR, "css", "styles.min.css"), minCSS, "utf8");
 
@@ -151,7 +116,7 @@ function runBuild() {
     });
   }
 
-  // 3. Process JS modules in `js/`
+  // 2. Process JS modules in `js/`
   const jsDir = path.join(ROOT_DIR, "js");
   if (fs.existsSync(jsDir)) {
     const jsFiles = fs.readdirSync(jsDir).filter((file) => file.endsWith(".js") && !file.endsWith(".min.js"));
@@ -164,9 +129,7 @@ function runBuild() {
       const baseName = file.replace(/\.js$/, "");
       const minFilename = `${baseName}.min.js`;
 
-      // Save in-place minified version
       fs.writeFileSync(path.join(jsDir, minFilename), minJS, "utf8");
-      // Save to dist (both normal name and .min.js name so imports resolve seamlessly!)
       fs.writeFileSync(path.join(DIST_DIR, "js", file), minJS, "utf8");
       fs.writeFileSync(path.join(DIST_DIR, "js", minFilename), minJS, "utf8");
 
@@ -183,11 +146,21 @@ function runBuild() {
     }
   }
 
-  // 4. Process assets/ directory
+  // 3. Process assets/ directory
   const assetsDir = path.join(ROOT_DIR, "assets");
   if (fs.existsSync(assetsDir)) {
     copyDir(assetsDir, path.join(DIST_DIR, "assets"));
     console.log("✅ [Assets] Copied all icons and preview graphics to /dist/assets.");
+  }
+
+  // 4. Process PWA Manifest & Service Worker
+  const pwaFiles = ["manifest.json", "service-worker.js"];
+  for (const pwaFile of pwaFiles) {
+    const srcPath = path.join(ROOT_DIR, pwaFile);
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, path.join(DIST_DIR, pwaFile));
+      console.log(`✅ [PWA] Copied '${pwaFile}' to /dist.`);
+    }
   }
 
   // 5. Process index.html
@@ -210,7 +183,7 @@ function runBuild() {
   }
 
   // 6. Copy Markdown & project documentation to dist
-  const docs = ["README.md", "CS_LOGIC_EXPLANATION.md"];
+  const docs = ["README.md", "CS_LOGIC_EXPLANATION.md", "SECURITY.md"];
   for (const doc of docs) {
     const docPath = path.join(ROOT_DIR, doc);
     if (fs.existsSync(docPath)) {

@@ -1,40 +1,35 @@
 /**
  * ============================================================================
- * ACCESSYOURDISTRICT - MAIN APPLICATION ORCHESTRATOR
+ * ACCESSYOURDISTRICT - MAIN APPLICATION ORCHESTRATOR & PWA CONTROLLER
  * Congressional App Challenge - Civic Inclusion Platform
  * ============================================================================
  *
- * ARCHITECTURE, DATA FLOW & SOCIETAL USE EXPLANATION:
- * ---------------------------------------------------
- * 1. Dynamic District Header (Civic Representative Info):
+ * ARCHITECTURE, DATA FLOW, PWA & SOCIETAL USE EXPLANATION:
+ * --------------------------------------------------------
+ * 1. Progressive Web App (PWA) & Offline Caching Architecture:
+ *    - Registers `service-worker.js` to precache the static app shell and
+ *      external Leaflet.js libraries (`leaflet.css`, `leaflet.js`).
+ *    - Uses a Stale-While-Revalidate caching strategy for OpenStreetMap tiles
+ *      (`tile.openstreetmap.org`), allowing constituents to navigate maps
+ *      in dead zones or subways with zero cellular service.
+ *    - Captures the native PWA `beforeinstallprompt` event so users can install
+ *      AccessYourDistrict directly to their smartphone home screen.
+ *
+ * 2. Offline Field Reporting Queue (`ayd_offline_queue`):
+ *    - Reports submitted while offline (`!navigator.onLine` or dead zone) are
+ *      enqueued locally and automatically synced to Firebase Realtime Database
+ *      the moment connection is restored (`window.addEventListener('online')`).
+ *
+ * 3. Dynamic District Header (Civic Representative Info):
  *    - Uses `districtConfig` JSON object and `renderDistrictHeader()` to bind
  *      the Representative's name, district code, phone, and official House.gov
  *      contact URL dynamically to the top of the application.
  *
- * 2. Societal Use (Civic Resource & Government Directory Layer):
+ * 4. Societal Use (Civic Resource & Government Directory Layer):
  *    - Integrates `getCivicOffices()` to display verified ADA-accessible local
  *      government and congressional offices on the map and in the sidebar.
  *    - Implements CSV Export (`exportReportsToCSV`) so city planners and DPW
  *      engineers can import crowdsourced citizen reports into municipal GIS systems.
- *
- * 3. Automated Geolocation API Integration:
- *    - On launch, the browser Geolocation API centers the map automatically on
- *      the resident's current position and places a "You Are Here" pin.
- *
- * 4. End-to-End Technical Data Flow (Summary for Video Submission):
- *    [User Map Click / Form Submit]
- *                 │
- *                 ▼
- *    [UIController Input Validation & Serialization]
- *                 │
- *                 ▼
- *    [ReportService.addReport() -> Firebase Realtime DB push()]
- *                 │
- *                 ▼ (WebSockets Broadcast in < 100ms)
- *    [Firebase onValue() Listener -> notifySubscribers()]
- *                 │
- *                 ▼
- *    [UIController Filter Pipeline & MapController O(1) Map Diffing]
  * ============================================================================
  */
 
@@ -46,7 +41,8 @@ import {
   resolveReport,
   resetDemoData,
   getCivicOffices,
-  exportReportsToCSV
+  exportReportsToCSV,
+  syncOfflineQueue
 } from "./report-service.js";
 import { districtConfig, renderDistrictHeader } from "./district-config.js";
 import { MapController } from "./map-controller.js";
@@ -123,8 +119,9 @@ class AccessYourDistrictApp {
     this.ui.init();
     this.ui.setDatabaseStatus(isLiveFirebaseConfigured);
 
-    // 3. Bind top Navigation Bar Actions
+    // 3. Bind top Navigation Bar Actions & PWA Install Prompt
     this.bindHeaderActions();
+    this.initPWA();
 
     // 4. Subscribe to real-time reports from Firebase / Demo DB
     subscribeToReports((reports) => {
@@ -135,7 +132,6 @@ class AccessYourDistrictApp {
     });
 
     // 5. AUTOMATIC GEOLOCATION API CALL ON OPEN (SOCIETAL PORTABILITY)
-    // Centers map on the user's actual browser coordinates with a "You Are Here" marker
     this.map.locateUserDistrict(
       (coords) => {
         console.log(`📍 Centered automatically on user location: ${coords.latitude}, ${coords.longitude}`);
@@ -153,8 +149,70 @@ class AccessYourDistrictApp {
       getCivicOffices: () => this.civicOffices,
       exportCSV: () => exportReportsToCSV(this.latestReports),
       toggleHighContrast: () => this.ui.toggleHighContrast(),
-      updateDistrict: (newConfig) => renderDistrictHeader(newConfig)
+      updateDistrict: (newConfig) => renderDistrictHeader(newConfig),
+      syncOffline: () => syncOfflineQueue()
     };
+  }
+
+  /**
+   * Initialize Progressive Web App (PWA) Service Worker & Offline Queue Sync.
+   */
+  initPWA() {
+    // 1. Register Service Worker
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("./service-worker.js")
+          .then((reg) => {
+            console.log("✅ [ServiceWorker] Registered successfully with scope:", reg.scope);
+          })
+          .catch((err) => {
+            console.warn("⚠️ [ServiceWorker] Registration failed:", err);
+          });
+      });
+    }
+
+    // 2. Capture native install prompt for mobile/desktop home screen installation
+    let deferredPrompt = null;
+    const installBtn = document.getElementById("btn-install-pwa");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) {
+        installBtn.classList.remove("hidden");
+      }
+      console.log("📲 [PWA] App installation prompt available.");
+    });
+
+    if (installBtn) {
+      installBtn.addEventListener("click", async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") {
+          console.log("✅ [PWA] Citizen accepted home screen installation!");
+          installBtn.classList.add("hidden");
+        }
+        deferredPrompt = null;
+      });
+    }
+
+    // 3. Online/Offline Network Resilience & Automatic Field Queue Flushing
+    window.addEventListener("online", async () => {
+      console.log("📡 [Network] Connection restored.");
+      const syncedCount = await syncOfflineQueue();
+      if (syncedCount > 0) {
+        this.ui.showToast(`📡 Network Online: Automatically synced ${syncedCount} offline-queued barrier report(s) to Firebase!`, "success");
+      } else {
+        this.ui.showToast("📡 Network Online: Connection restored.", "success");
+      }
+    });
+
+    window.addEventListener("offline", () => {
+      console.log("📡 [Network] Device is offline.");
+      this.ui.showToast("📡 Offline Mode: You can still view cached maps and queue barrier reports locally!", "error");
+    });
   }
 
   /**

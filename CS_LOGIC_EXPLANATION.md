@@ -1,4 +1,4 @@
-# 🏛️ AccessYourDistrict — CS Logic, UX, Societal Use, Cybersecurity, Accessibility & Video Guide
+# 🏛️ AccessYourDistrict — CS Logic, UX, Societal Use, Cybersecurity, Accessibility, PWA & Video Guide
 **Congressional App Challenge • Civic Inclusion & Crowdsourced Accessibility Platform**
 
 ---
@@ -6,15 +6,16 @@
 ## 📋 Table of Contents
 1. [Executive Summary & Purpose](#1-executive-summary--purpose)
 2. [Societal Use, District Info & Civic Resource Layer (Winning Legacy)](#2-societal-use-district-info--civic-resource-layer-winning-legacy)
-3. [Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)](#3-cybersecurity--application-hardening-xss-schema-guard--anti-spam)
-4. [Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance](#4-web-accessibility-specialist-a11y--wcag-22-level-aaa-compliance)
-5. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#5-end-to-end-technical-data-flow-for-your-13-minute-video)
-6. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#6-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
-7. [Data Structures & Dynamic JSON District Binding](#7-data-structures--dynamic-json-district-binding)
-8. [API Calls & Real-Time Synchronization Logic](#8-api-calls--real-time-synchronization-logic)
-9. [Modular Software Architecture](#9-modular-software-architecture)
-10. [Step-by-Step GitHub Pages & Firebase Deployment](#10-step-by-step-github-pages--firebase-deployment)
-11. [3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)](#11-3-minute-congressional-app-challenge-video-script-timed--rubric-aligned)
+3. [Full-Stack Progressive Web App (PWA) & Offline Field Caching](#3-full-stack-progressive-web-app-pwa--offline-field-caching)
+4. [Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)](#4-cybersecurity--application-hardening-xss-schema-guard--anti-spam)
+5. [Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance](#5-web-accessibility-specialist-a11y--wcag-22-level-aaa-compliance)
+6. [End-to-End Technical Data Flow (For Your 1–3 Minute Video)](#6-end-to-end-technical-data-flow-for-your-13-minute-video)
+7. [Advanced CS Programming Skill: CSV Export Engine for City Planners](#7-advanced-cs-programming-skill-csv-export-engine-for-city-planners)
+8. [Data Structures & Dynamic JSON District Binding](#8-data-structures--dynamic-json-district-binding)
+9. [API Calls & Real-Time Synchronization Logic](#9-api-calls--real-time-synchronization-logic)
+10. [Modular Software Architecture](#10-modular-software-architecture)
+11. [Step-by-Step GitHub Pages & Firebase Deployment](#11-step-by-step-github-pages--firebase-deployment)
+12. [3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)](#12-3-minute-congressional-app-challenge-video-script-timed--rubric-aligned)
 
 ---
 
@@ -50,7 +51,50 @@ Drawing on the winning legacies of past Congressional App Challenge champions li
 
 ---
 
-## 3. Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)
+## 3. Full-Stack Progressive Web App (PWA) & Offline Field Caching
+
+Because accessibility barriers often occur in dead zones, subways, or areas with poor cellular service, **AccessYourDistrict** is engineered as a **standalone Progressive Web App (PWA)** that functions reliably offline:
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    PROGRESSIVE WEB APP (PWA) ARCHITECTURE                 │
+│                                                                           │
+│   ┌───────────────────────────┐        ┌──────────────────────────────┐   │
+│   │     service-worker.js     │        │        manifest.json         │   │
+│   │ • Precaches HTML, CSS, JS │        │ • Full-screen standalone mode│   │
+│   │ • Precaches Leaflet CDN   │        │ • Theme colors (#0d47a1)     │   │
+│   │ • Stale-While-Revalidate  │        │ • Vector & Hero OG Icons     │   │
+│   │   OpenStreetMap Tiles     │        └──────────────────────────────┘   │
+│   └─────────────┬─────────────┘                                           │
+│                 │                                                         │
+│                 ▼                                                         │
+│   ┌──────────────────────────────────────────────────────────────────┐    │
+│   │         OFFLINE REPORTING FIELD QUEUE (ayd_offline_queue)        │    │
+│   │ • Captures offline submissions (!navigator.onLine) locally       │    │
+│   │ • Flushes automatically when network is restored ('online')      │    │
+│   └──────────────────────────────────────────────────────────────────┘    │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. PWA Manifest (`manifest.json`)
+* Configured with `"display": "standalone"`, allowing constituents to install **AccessYourDistrict** directly to their Android, iOS, or Desktop home screen without browser address bars.
+* Includes vector SVG icons (`assets/icons/favicon.svg`) with `"purpose": "any maskable"`, ensuring clean icon rendering across mobile devices.
+
+### 2. Service Worker Precaching (`service-worker.js`)
+* **Core Application Shell:** On installation (`install` event), the Service Worker precaches `index.html`, `css/styles.css`, all ES JavaScript modules (`app.js`, `report-service.js`, etc.), and vector icons into `ayd-pwa-cache-v1`.
+* **Leaflet.js Library Precaching:** Precaches `https://unpkg.com/leaflet@1.9.4/dist/leaflet.css` and `leaflet.js` from CDNs so the mapping engine loads instantly without network access.
+
+### 3. Stale-While-Revalidate Map Tile Caching (`tile.openstreetmap.org`)
+* In the `fetch` event handler, OpenStreetMap tile requests are routed through a **Stale-While-Revalidate / Cache-First** strategy (`ayd-map-tiles-v1`).
+* When a user views their neighborhood map online, the tiles are stored locally. If they later travel into a dead zone to report an obstacle, the interactive Leaflet map continues rendering from cache.
+
+### 4. Offline Field Reporting Queue (`ayd_offline_queue`)
+* When a field worker or constituent submits a barrier report while offline (`!navigator.onLine` or network write error), `ReportService.addReport()` catches the offline state, saves the validated payload to LocalStorage (`ayd_offline_queue`), and flags it with `wasOfflineSaved: true`.
+* The moment network connectivity is restored (`window.addEventListener('online')`), `syncOfflineQueue()` automatically flushes queued reports to **Firebase Realtime Database** and notifies the user via an accessible toast.
+
+---
+
+## 4. Cybersecurity & Application Hardening (XSS, Schema Guard & Anti-Spam)
 
 To ensure **AccessYourDistrict** remains secure against script injection, invalid coordinate poisoning, and automated map spam when hosted publicly on **GitHub Pages**, we implemented a **3-layer defensive cybersecurity architecture**:
 
@@ -98,10 +142,11 @@ To ensure **AccessYourDistrict** remains secure against script injection, invali
     }
   }
   ```
+  *(See [`SECURITY.md`](./SECURITY.md) for full instructions on applying these rules in your Firebase Console.)*
 
 ---
 
-## 4. Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance
+## 5. Web Accessibility Specialist (A11y) & WCAG 2.2 Level AAA Compliance
 
 To ensure **AccessYourDistrict** is usable by everyone—including screen reader users and keyboard-only navigators—the application implements full **WCAG 2.2 Level AA and Level AAA standards**:
 
@@ -136,7 +181,7 @@ Every button, map legend item, severity badge, and body text style exceeds WCAG 
 
 ---
 
-## 5. End-to-End Technical Data Flow (For Your 1–3 Minute Video)
+## 6. End-to-End Technical Data Flow (For Your 1–3 Minute Video)
 
 When explaining your technical implementation in your submission video, use this **step-by-step Data Flow summary** to demonstrate mastery of client-server architecture and real-time synchronization:
 
@@ -184,7 +229,7 @@ When explaining your technical implementation in your submission video, use this
 
 ---
 
-## 6. Advanced CS Programming Skill: CSV Export Engine for City Planners
+## 7. Advanced CS Programming Skill: CSV Export Engine for City Planners
 
 In `js/report-service.js`, the `exportReportsToCSV()` function highlights an advanced Computer Science skill: **custom data serialization and browser Blob management**:
 
@@ -212,7 +257,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 7. Data Structures & Dynamic JSON District Binding
+## 8. Data Structures & Dynamic JSON District Binding
 
 1. **The `districtConfig` Schema (`js/district-config.js`):**
    * Stores the Representative's name, district code (`FL-23`), office location, phone, and official House.gov contact URL.
@@ -230,7 +275,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 8. API Calls & Real-Time Synchronization Logic
+## 9. API Calls & Real-Time Synchronization Logic
 
 1. **Firebase Realtime Database WebSockets (`onValue`):** Opens a persistent WebSocket for instant real-time synchronization across all visitors.
 2. **Leaflet.js & OpenStreetMap Tile Layer API:** Dynamically fetches street imagery tiles (`tile.openstreetmap.org/{z}/{x}/{y}.png`) based on viewport zoom and pan coordinates.
@@ -238,7 +283,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 9. Modular Software Architecture
+## 10. Modular Software Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -273,7 +318,7 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 10. Step-by-Step GitHub Pages & Firebase Deployment
+## 11. Step-by-Step GitHub Pages & Firebase Deployment
 
 ### Step 1: Set up Firebase Realtime Database
 1. Go to the [Firebase Console](https://console.firebase.google.com/) and click **Add Project** (e.g., `access-your-district`).
@@ -291,23 +336,21 @@ export function exportReportsToCSV(reports) {
 
 ---
 
-## 11. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
+## 12. 3-Minute Congressional App Challenge Video Script (Timed & Rubric-Aligned)
 
-> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `js/security-utils.js` (XSS sanitization & validation), `js/map-controller.js` (ARIA labels and O(1) Map dictionary), and `js/district-config.js` (JSON header binding)!
+> **Tip for Video Recording:** Screen-record your app in action while narrating. Have your code editor open in another tab to show `service-worker.js` (PWA caching), `security-utils.js` (XSS sanitization), `js/district-config.js` (JSON header binding), and `firebase-security-rules.json`!
 
-### **[0:00 – 0:40] Introduction, Problem Statement & Accessibility Design**
+### **[0:00 – 0:40] Introduction, Problem Statement & Congressional Seal Branding**
 * **Visual:** Show yourself speaking or the homepage of **AccessYourDistrict**. Point out the Dynamic Congressional District Header (`FL-23 / Rep. Jared Moskowitz`) and demonstrate clicking the `[ A+ ]` font scaler and toggling `[ 🌗 High Contrast ]`.
 * **Script:**
   > *"Hello! I am [Your Name], and I built **AccessYourDistrict** for the Congressional App Challenge. In every congressional district, accessibility barriers like broken wheelchair ramps, missing tactile paving, or blocked sidewalks prevent community members with disabilities from safely navigating their neighborhoods.*
   > 
   > *At the top of the app, our Dynamic Congressional District Header displays my Representative's name and office contact info using a modular JSON object, linking directly to my Member's official House.gov portal. To ensure the tool is usable by everyone, I engineered it with an Accessibility-First approach: every Leaflet map pin has explicit ARIA labels and can be triggered using only the Tab and Enter keys, while our color palette exceeds WCAG AAA contrast ratios."*
 
-### **[0:40 – 1:30] Live Demonstration: Crowdsourcing & Civic Resource Directory**
-* **Visual:** Show how the app opens centered on your location via the Geolocation API. Click **Report Barrier**, pin a location, select `"♿ Broken Ramp"`, and submit. Then click the **`🏛️ Civic Directory`** tab and show the verified government offices and ADA feature badges.
+### **[0:40 – 1:30] Live Demonstration: PWA Offline Reporting & Civic Resource Directory**
+* **Visual:** Show how the app opens centered on your location via the Geolocation API. Click **Report Barrier**, pin a location, select `"♿ Broken Ramp"`, and submit. Show the **`[ 📲 Install App ]`** PWA button. Then click the **`🏛️ Civic Directory`** tab and show the verified government offices and ADA feature badges.
 * **Script:**
-  > *"When the app opens, it calls the browser Geolocation API to center automatically on the resident's district using free OpenStreetMap tiles from Leaflet.js.*
-  > 
-  > *If I spot a broken wheelchair ramp, I click **Report Barrier** and select the location on the map. I choose a category, set the urgency level, and enter a suggested repair. When I click Submit, the barrier is instantly pinned to the map.*
+  > *"Because accessibility barriers often happen in dead zones, I engineered AccessYourDistrict as an installable **Progressive Web App (PWA)**. Our Service Worker precaches Leaflet.js CDN libraries and uses Stale-While-Revalidate tile caching. If a constituent submits a report offline in a dead zone, our offline field queue saves it locally and flushes it automatically when network connection is restored.*
   > 
   > *To maximize societal impact, I also added a **Civic Resource Directory**. Residents can search verified ADA-accessible local government and congressional offices, view their verified accessibility features, and connect directly with constituent caseworkers to advocate for repairs."*
 
@@ -325,4 +368,4 @@ export function exportReportsToCSV(reports) {
 ### **[2:30 – 3:00] Civic Advocacy & Conclusion**
 * **Visual:** Show the filtered map with several reports, the mobile tab switcher, and the Congressional District Portal banner.
 * **Script:**
-  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with verified government resources, cybersecurity hardening, WCAG AAA accessibility, and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*
+  > *"AccessYourDistrict bridges the gap between everyday residents and civic infrastructure leaders. By combining crowdsourced accessibility reporting with standalone PWA offline field caching, verified government resources, cybersecurity hardening, WCAG AAA accessibility, and official House.gov constituent portals, we can make our congressional district safer and more inclusive for everyone. Thank you for watching!"*
